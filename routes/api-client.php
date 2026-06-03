@@ -44,6 +44,9 @@ Route::prefix('/account')->middleware(AccountSubject::class)->group(function () 
         Route::post('/', [Client\SSHKeyController::class, 'store']);
         Route::post('/remove', [Client\SSHKeyController::class, 'delete']);
     });
+
+    Route::get('/dashboard-layout', [Client\DashboardLayoutController::class, 'index']);
+    Route::put('/dashboard-layout', [Client\DashboardLayoutController::class, 'update']);
 });
 
 /*
@@ -132,11 +135,14 @@ Route::group([
     Route::group(['prefix' => '/backups'], function () {
         Route::get('/', [Client\Servers\BackupController::class, 'index']);
         Route::post('/', [Client\Servers\BackupController::class, 'store']);
+        Route::get('/create-server/nodes', [Client\Servers\BackupController::class, 'createServerNodes']);
         Route::get('/{backup}', [Client\Servers\BackupController::class, 'view']);
         Route::get('/{backup}/download', [Client\Servers\BackupController::class, 'download']);
         Route::post('/{backup}/lock', [Client\Servers\BackupController::class, 'toggleLock']);
         Route::middleware([ResourceLimit::Backup->middleware()])
             ->post('/{backup}/restore', [Client\Servers\BackupController::class, 'restore']);
+        Route::middleware([ResourceLimit::Backup->middleware(), 'throttle:api.client.server.backup-create'])
+            ->post('/{backup}/create-server', [Client\Servers\BackupController::class, 'createServer']);
         Route::delete('/{backup}', [Client\Servers\BackupController::class, 'delete']);
     });
 
@@ -149,5 +155,10 @@ Route::group([
         Route::post('/rename', [Client\Servers\SettingsController::class, 'rename']);
         Route::post('/reinstall', [Client\Servers\SettingsController::class, 'reinstall']);
         Route::put('/docker-image', [Client\Servers\SettingsController::class, 'dockerImage']);
+    });
+
+    Route::group(['prefix' => '/clone-cleanup'], function () {
+        Route::get('/plugins', [Client\Servers\BackupCloneCleanupController::class, 'plugins']);
+        Route::post('/', [Client\Servers\BackupCloneCleanupController::class, 'cleanup']);
     });
 });

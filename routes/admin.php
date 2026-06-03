@@ -149,6 +149,8 @@ Route::group(['prefix' => 'servers'], function () {
 */
 Route::group(['prefix' => 'nodes'], function () {
     Route::get('/', [Admin\Nodes\NodeController::class, 'index'])->name('admin.nodes');
+    Route::get('/usage', [Admin\Nodes\NodeUsageController::class, 'index'])->name('admin.nodes.usage');
+    Route::get('/usage/stats.json', [Admin\Nodes\NodeUsageController::class, 'stats'])->name('admin.nodes.usage.stats');
     Route::get('/new', [Admin\NodesController::class, 'create'])->name('admin.nodes.new');
     Route::get('/view/{node:id}', [Admin\Nodes\NodeViewController::class, 'index'])->name('admin.nodes.view');
     Route::get('/view/{node:id}/settings', [Admin\Nodes\NodeViewController::class, 'settings'])->name('admin.nodes.view.settings');

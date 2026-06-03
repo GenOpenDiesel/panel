@@ -13,6 +13,7 @@ use Pterodactyl\Models\EggVariable;
 use League\Fractal\Resource\Collection;
 use League\Fractal\Resource\NullResource;
 use Pterodactyl\Services\Servers\StartupCommandService;
+use Pterodactyl\Services\Backups\CreateServerFromBackupService;
 
 class ServerTransformer extends BaseClientTransformer
 {
@@ -79,6 +80,7 @@ class ServerTransformer extends BaseClientTransformer
             // This field is deprecated, please use "status".
             'is_installing' => !$server->isInstalled(),
             'is_transferring' => !is_null($server->transfer),
+            'clone_cleanup_pending' => CreateServerFromBackupService::isAwaitingPluginSelection($server->id),
         ];
     }
 

@@ -19,6 +19,9 @@ use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\StoreBackupRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\RestoreBackupRequest;
+use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\CreateServerFromBackupRequest;
+use Pterodactyl\Services\Backups\CreateServerFromBackupService;
+use Pterodactyl\Services\Nodes\NodeUsageService;
 
 class BackupController extends ClientApiController
 {
@@ -31,6 +34,8 @@ class BackupController extends ClientApiController
         private InitiateBackupService $initiateBackupService,
         private DownloadLinkService $downloadLinkService,
         private BackupRepository $repository,
+        private CreateServerFromBackupService $createServerFromBackupService,
+        private NodeUsageService $nodeUsageService,
     ) {
         parent::__construct();
     }
@@ -226,5 +231,56 @@ class BackupController extends ClientApiController
         });
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Returns live node usage statistics for selecting a deployment target
+     * when creating a server from a backup.
+     *
+     * @throws AuthorizationException
+     */
+    public function createServerNodes(Request $request, Server $server): JsonResponse
+    {
+        if (!$request->user()->can(Permission::ACTION_BACKUP_RESTORE, $server)) {
+            throw new AuthorizationException();
+        }
+
+        return new JsonResponse(
+            $this->nodeUsageService->getForDeployment($server->memory, $server->disk)
+        );
+    }
+
+    /**
+     * Creates a new server from a backup with the same settings as the source
+     * server, but with 300% CPU limit.
+     *
+     * @throws \Throwable
+     */
+    public function createServer(CreateServerFromBackupRequest $request, Server $server, Backup $backup): JsonResponse
+    {
+        if ($backup->server_id !== $server->id) {
+            throw new BadRequestHttpException('The requested backup does not belong to this server.');
+        }
+
+        $newServer = $this->createServerFromBackupService->handle(
+            $server,
+            $backup,
+            $request->user(),
+            $request->input('name'),
+            $request->integer('node_id') ?: null,
+        );
+
+        Activity::event('server:backup.create-server')
+            ->subject($backup, $server)
+            ->property('name', $backup->name)
+            ->log();
+
+        return new JsonResponse([
+            'object' => 'server_reference',
+            'attributes' => [
+                'uuid' => $newServer->uuid,
+                'identifier' => $newServer->identifier ?? $newServer->uuidShort,
+            ],
+        ], JsonResponse::HTTP_CREATED);
     }
 }

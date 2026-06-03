@@ -96,9 +96,14 @@
                                 <i class="fa fa-globe"></i> <span>Locations</span>
                             </a>
                         </li>
-                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.nodes') ?: 'active' }}">
+                        <li class="{{ starts_with(Route::currentRouteName(), 'admin.nodes') && Route::currentRouteName() !== 'admin.nodes.usage' ? 'active' : '' }}">
                             <a href="{{ route('admin.nodes') }}">
                                 <i class="fa fa-sitemap"></i> <span>Nodes</span>
+                            </a>
+                        </li>
+                        <li class="{{ Route::currentRouteName() === 'admin.nodes.usage' ? 'active' : '' }}">
+                            <a href="{{ route('admin.nodes.usage') }}">
+                                <i class="fa fa-tachometer"></i> <span>Zużycie węzłów</span>
                             </a>
                         </li>
                         <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.servers') ?: 'active' }}">

@@ -4,6 +4,7 @@ import {
     faCloudDownloadAlt,
     faEllipsisH,
     faLock,
+    faPlus,
     faTrashAlt,
     faUnlock,
 } from '@fortawesome/free-solid-svg-icons';
@@ -20,6 +21,8 @@ import { ServerBackup } from '@/api/server/types';
 import { ServerContext } from '@/state/server';
 import Input from '@/components/elements/Input';
 import { restoreServerBackup } from '@/api/server/backups';
+import createServerFromBackup from '@/api/server/backups/createServerFromBackup';
+import CreateServerNodeSelector from '@/components/server/backups/CreateServerNodeSelector';
 import http, { httpErrorToHuman } from '@/api/http';
 import { Dialog } from '@/components/elements/dialog';
 
@@ -33,7 +36,9 @@ export default ({ backup }: Props) => {
     const [modal, setModal] = useState('');
     const [loading, setLoading] = useState(false);
     const [truncate, setTruncate] = useState(false);
-    const { clearFlashes, clearAndAddHttpError } = useFlash();
+    const [serverName, setServerName] = useState('');
+    const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+    const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
     const { mutate } = getServerBackups();
 
     const doDownload = () => {
@@ -89,6 +94,38 @@ export default ({ backup }: Props) => {
             })
             .then(() => setLoading(false))
             .then(() => setModal(''));
+    };
+
+    const doCreateServer = () => {
+        if (selectedNodeId === null) {
+            clearFlashes('backups');
+            addFlash({
+                key: 'backups',
+                type: 'error',
+                message: 'Wybierz węzeł, na którym ma powstać serwer.',
+            });
+            return;
+        }
+
+        setLoading(true);
+        clearFlashes('backups');
+        createServerFromBackup(uuid, backup.uuid, serverName || undefined, selectedNodeId)
+            .then((server) => {
+                addFlash({
+                    key: 'backups',
+                    type: 'success',
+                    message: 'A new server has been created and the backup restoration process has started.',
+                });
+                window.open(`/server/${server.identifier}`, '_blank');
+                setModal('');
+                setServerName('');
+                setSelectedNodeId(null);
+            })
+            .catch((error) => {
+                console.error(error);
+                clearAndAddHttpError({ key: 'backups', error });
+            })
+            .then(() => setLoading(false));
     };
 
     const onLockToggle = () => {
@@ -153,6 +190,42 @@ export default ({ backup }: Props) => {
                 </p>
             </Dialog.Confirm>
             <Dialog.Confirm
+                open={modal === 'create-server'}
+                onClose={() => {
+                    setModal('');
+                    setServerName('');
+                    setSelectedNodeId(null);
+                }}
+                confirm={'Create Server'}
+                title={`Create Server from "${backup.name}"`}
+                onConfirmed={doCreateServer}
+            >
+                <p>
+                    A new server will be provisioned using the same configuration as this server, with the CPU limit
+                    set to 300%. The selected backup will be restored to the new instance. Once the restoration
+                    completes, you will be prompted to remove any plugins from the <code>/plugins</code> directory
+                    that are not required.
+                </p>
+                <div css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
+                    <CreateServerNodeSelector
+                        serverUuid={uuid}
+                        selectedNodeId={selectedNodeId}
+                        onSelect={setSelectedNodeId}
+                    />
+                </div>
+                <p css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
+                    <label htmlFor={'clone_server_name'} css={tw`text-base block mb-2`}>
+                        Server Name (Optional)
+                    </label>
+                    <Input
+                        id={'clone_server_name'}
+                        value={serverName}
+                        onChange={(e) => setServerName(e.target.value)}
+                        placeholder={`Clone: ${backup.name}`}
+                    />
+                </p>
+            </Dialog.Confirm>
+            <Dialog.Confirm
                 title={`Delete "${backup.name}"`}
                 confirm={'Continue'}
                 open={modal === 'delete'}
@@ -184,6 +257,10 @@ export default ({ backup }: Props) => {
                             <DropdownButtonRow onClick={() => setModal('restore')}>
                                 <FontAwesomeIcon fixedWidth icon={faBoxOpen} css={tw`text-xs`} />
                                 <span css={tw`ml-2`}>Restore</span>
+                            </DropdownButtonRow>
+                            <DropdownButtonRow onClick={() => setModal('create-server')}>
+                                <FontAwesomeIcon fixedWidth icon={faPlus} css={tw`text-xs`} />
+                                <span css={tw`ml-2`}>Create Server</span>
                             </DropdownButtonRow>
                         </Can>
                         <Can action={'backup.delete'}>

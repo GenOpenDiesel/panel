@@ -14,6 +14,8 @@ use Pterodactyl\Extensions\Filesystem\S3Filesystem;
 use Pterodactyl\Exceptions\Http\HttpForbiddenException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Pterodactyl\Http\Requests\Api\Remote\ReportBackupCompleteRequest;
+use Pterodactyl\Services\Backups\CreateServerFromBackupService;
+use Illuminate\Support\Facades\Cache;
 
 class BackupStatusController extends Controller
 {
@@ -101,6 +103,15 @@ class BackupStatusController extends Controller
         }
 
         $model->server->update(['status' => null]);
+
+        $cacheKey = CreateServerFromBackupService::cacheKey($model->server->id);
+        if ($request->boolean('successful') && Cache::has($cacheKey)) {
+            $state = Cache::get($cacheKey);
+            $state['status'] = 'awaiting_plugins';
+            Cache::put($cacheKey, $state, now()->addHours(24));
+        } elseif (!$request->boolean('successful') && Cache::has($cacheKey)) {
+            Cache::forget($cacheKey);
+        }
 
         Activity::event($request->boolean('successful') ? 'server:backup.restore-complete' : 'server.backup.restore-failed')
             ->subject($model, $model->server)

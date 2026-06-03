@@ -108,6 +108,10 @@ class RouteServiceProvider extends ServiceProvider
             )->by($key);
         });
 
+        RateLimiter::for('api.client.server.backup-create', function (Request $request) {
+            return Limit::perHour(3)->by(optional($request->user())->uuid ?: $request->ip());
+        });
+
         ResourceLimit::boot();
     }
 }
