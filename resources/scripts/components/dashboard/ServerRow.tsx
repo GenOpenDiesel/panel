@@ -49,7 +49,15 @@ const StatusIndicatorBox = styled(GreyRowBox)<{ $status: ServerPowerState | unde
 
 type Timer = ReturnType<typeof setInterval>;
 
-export default ({ server, className }: { server: Server; className?: string }) => {
+export default ({
+    server,
+    className,
+    disableNavigation,
+}: {
+    server: Server;
+    className?: string;
+    disableNavigation?: boolean;
+}) => {
     const interval = useRef<Timer>(null) as React.MutableRefObject<Timer>;
     const [isSuspended, setIsSuspended] = useState(server.status === 'suspended');
     const [stats, setStats] = useState<ServerStats | null>(null);
@@ -88,8 +96,11 @@ export default ({ server, className }: { server: Server; className?: string }) =
     const memoryLimit = server.limits.memory !== 0 ? bytesToString(mbToBytes(server.limits.memory)) : 'Unlimited';
     const cpuLimit = server.limits.cpu !== 0 ? server.limits.cpu + ' %' : 'Unlimited';
 
+    const Wrapper = disableNavigation ? 'div' : Link;
+    const wrapperProps = disableNavigation ? {} : { to: `/server/${server.id}` };
+
     return (
-        <StatusIndicatorBox as={Link} to={`/server/${server.id}`} className={className} $status={stats?.status}>
+        <StatusIndicatorBox as={Wrapper} {...wrapperProps} className={className} $status={stats?.status}>
             <div css={tw`flex items-center col-span-12 sm:col-span-5 lg:col-span-6`}>
                 <div className={'icon mr-4'}>
                     <FontAwesomeIcon icon={faServer} />

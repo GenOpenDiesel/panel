@@ -134,6 +134,7 @@ class User extends Model implements
         'totp_authenticated_at',
         'gravatar',
         'root_admin',
+        'dashboard_layout',
     ];
 
     /**
@@ -144,6 +145,7 @@ class User extends Model implements
         'use_totp' => 'boolean',
         'gravatar' => 'boolean',
         'totp_authenticated_at' => 'datetime',
+        'dashboard_layout' => 'array',
     ];
 
     /**
