@@ -30,6 +30,7 @@ export default () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [mode, setMode] = useState('text/plain');
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [isDirty, setIsDirty] = useState(false);
 
     const history = useHistory();
     const { hash } = useLocation();
@@ -62,7 +63,7 @@ export default () => {
             return;
         }
 
-        if (validationError) {
+        if (isDirty && validationError) {
             addError({ message: validationError, key: 'files:view' });
 
             return;
@@ -73,10 +74,13 @@ export default () => {
         fetchFileContent()
             .then((content) => {
                 const filePath = name || hashToPath(hash);
-                const issue = validateStructuredFileContent(filePath, content);
 
-                if (issue) {
-                    throw new Error(issue.message);
+                if (isDirty) {
+                    const issue = validateStructuredFileContent(filePath, content);
+
+                    if (issue) {
+                        throw new Error(issue.message);
+                    }
                 }
 
                 return saveFileContents(uuid, filePath, content);
@@ -129,7 +133,7 @@ export default () => {
             />
             <div css={tw`relative`}>
                 <SpinnerOverlay visible={loading} />
-                {validationError && (
+                {isDirty && validationError && (
                     <div css={tw`mb-3 rounded border-l-4 border-red-500 bg-neutral-900 p-3`}>
                         <p css={tw`text-sm text-red-400`}>{validationError}</p>
                     </div>
@@ -139,7 +143,10 @@ export default () => {
                     filename={hash.replace(/^#/, '')}
                     onModeChanged={setMode}
                     initialContent={content}
-                    onValidationChange={setValidationError}
+                    onValidationChange={({ error, isDirty: dirty }) => {
+                        setValidationError(error);
+                        setIsDirty(dirty);
+                    }}
                     fetchContent={(value) => {
                         fetchFileContent = value;
                     }}
@@ -164,13 +171,13 @@ export default () => {
                 </div>
                 {action === 'edit' ? (
                     <Can action={'file.update'}>
-                        <Button css={tw`flex-1 sm:flex-none`} disabled={!!validationError} onClick={() => save()}>
+                        <Button css={tw`flex-1 sm:flex-none`} disabled={isDirty && !!validationError} onClick={() => save()}>
                             Save Content
                         </Button>
                     </Can>
                 ) : (
                     <Can action={'file.create'}>
-                        <Button css={tw`flex-1 sm:flex-none`} disabled={!!validationError} onClick={() => setModalVisible(true)}>
+                        <Button css={tw`flex-1 sm:flex-none`} disabled={isDirty && !!validationError} onClick={() => setModalVisible(true)}>
                             Create File
                         </Button>
                     </Can>

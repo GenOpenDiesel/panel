@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import CodeMirror from 'codemirror';
 import styled from 'styled-components/macro';
 import tw from 'twin.macro';
@@ -109,6 +109,11 @@ const EditorContainer = styled.div`
     }
 `;
 
+export interface EditorValidationState {
+    error: string | null;
+    isDirty: boolean;
+}
+
 export interface Props {
     style?: React.CSSProperties;
     initialContent?: string;
@@ -117,7 +122,7 @@ export interface Props {
     onModeChanged: (mode: string) => void;
     fetchContent: (callback: () => Promise<string>) => void;
     onContentSaved: () => void;
-    onValidationChange?: (error: string | null) => void;
+    onValidationChange?: (state: EditorValidationState) => void;
 }
 
 const findModeByFilename = (filename: string) => {
@@ -150,6 +155,16 @@ const findModeByFilename = (filename: string) => {
 
 export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged, onValidationChange }: Props) => {
     const [editor, setEditor] = useState<CodeMirror.Editor>();
+    const isDirtyRef = useRef(false);
+    const onValidationChangeRef = useRef(onValidationChange);
+    onValidationChangeRef.current = onValidationChange;
+
+    const emitValidationState = useCallback((error: string | null) => {
+        onValidationChangeRef.current?.({
+            error: isDirtyRef.current ? error : null,
+            isDirty: isDirtyRef.current,
+        });
+    }, []);
 
     const ref = useCallback((node) => {
         if (!node) return;
@@ -205,23 +220,49 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
         if (!structuredType) {
             editor.setOption('lint', false);
             editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']);
-            onValidationChange?.(null);
+            emitValidationState(null);
 
             return;
         }
 
-        editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter', 'CodeMirror-lint-markers']);
-        editor.setOption('lint', {
-            delay: 400,
-            lintOnChange: true,
-            getAnnotations: (content: string) => getStructuredFileLintAnnotations(filename, content),
-            onUpdateLinting: (annotations: CodeMirror.Annotation[]) => {
-                onValidationChange?.(
-                    annotations.length > 0 ? annotations[0].message || 'Nieprawidłowa składnia pliku.' : null
-                );
-            },
-        });
-    }, [editor, filename, onValidationChange]);
+        const enableLint = () => {
+            editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter', 'CodeMirror-lint-markers']);
+            editor.setOption('lint', {
+                delay: 400,
+                lintOnChange: true,
+                getAnnotations: (content: string) => getStructuredFileLintAnnotations(filename, content),
+                onUpdateLinting: (annotations: CodeMirror.Annotation[]) => {
+                    emitValidationState(
+                        annotations.length > 0 ? annotations[0].message || 'Nieprawidłowa składnia pliku.' : null
+                    );
+                },
+            });
+        };
+
+        editor.setOption('lint', false);
+        editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']);
+        emitValidationState(null);
+
+        const onChange = (_instance: CodeMirror.Editor, change: CodeMirror.EditorChangeCategorized) => {
+            if (change.origin === 'setValue') {
+                return;
+            }
+
+            if (isDirtyRef.current) {
+                return;
+            }
+
+            isDirtyRef.current = true;
+            onValidationChangeRef.current?.({ error: null, isDirty: true });
+            enableLint();
+        };
+
+        editor.on('change', onChange);
+
+        return () => {
+            editor.off('change', onChange);
+        };
+    }, [editor, filename, emitValidationState]);
 
     useEffect(() => {
         if (editor) {
@@ -229,6 +270,8 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
             // Reset the history so that "Ctrl+Z" doesn't delete the intial content
             // we just set above.
             editor.setHistory({ done: [], undone: [] });
+            isDirtyRef.current = false;
+            onValidationChangeRef.current?.({ error: null, isDirty: false });
         }
     }, [editor, initialContent]);
 
