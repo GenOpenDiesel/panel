@@ -20,13 +20,30 @@ import ServerContentBlock from '@/components/elements/ServerContentBlock';
 import { useStoreActions } from '@/state/hooks';
 import ErrorBoundary from '@/components/elements/ErrorBoundary';
 import { FileActionCheckbox } from '@/components/server/files/SelectFileCheckbox';
-import { hashToPath } from '@/helpers';
+import { hashToPath, cleanDirectoryPath } from '@/helpers';
 import style from './style.module.css';
 
-const sortFiles = (files: FileObject[]): FileObject[] => {
+const FILE_DISPLAY_LIMIT = 400;
+
+const isLogsDirectory = (directory: string): boolean => {
+    const path = cleanDirectoryPath(directory);
+
+    return path === '/logs' || path.startsWith('/logs/');
+};
+
+const sortFiles = (files: FileObject[], directory: string): FileObject[] => {
+    if (isLogsDirectory(directory)) {
+        return [...files]
+            .sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
+            .slice(0, FILE_DISPLAY_LIMIT)
+            .filter((file, index, sorted) => index === 0 || file.name !== sorted[index - 1].name);
+    }
+
     const sortedFiles: FileObject[] = files
+        .slice(0, FILE_DISPLAY_LIMIT)
         .sort((a, b) => a.name.localeCompare(b.name))
         .sort((a, b) => (a.isFile === b.isFile ? 0 : a.isFile ? 1 : -1));
+
     return sortedFiles.filter((file, index) => index === 0 || file.name !== sortedFiles[index - 1].name);
 };
 
@@ -94,15 +111,15 @@ export default () => {
                     ) : (
                         <CSSTransition classNames={'fade'} timeout={150} appear in>
                             <div>
-                                {files.length > 250 && (
+                                {files.length > FILE_DISPLAY_LIMIT && (
                                     <div css={tw`rounded bg-yellow-400 mb-px p-3`}>
                                         <p css={tw`text-yellow-900 text-sm text-center`}>
                                             This directory is too large to display in the browser, limiting the output
-                                            to the first 250 files.
+                                            to the first {FILE_DISPLAY_LIMIT} files.
                                         </p>
                                     </div>
                                 )}
-                                {sortFiles(files.slice(0, 250)).map((file) => (
+                                {sortFiles(files, directory).map((file) => (
                                     <FileObjectRow key={file.key} file={file} />
                                 ))}
                                 <MassActionsBar />
