@@ -233,7 +233,7 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
                 getAnnotations: (content: string) => getStructuredFileLintAnnotations(filename, content),
                 onUpdateLinting: (annotations: CodeMirror.Annotation[]) => {
                     emitValidationState(
-                        annotations.length > 0 ? annotations[0].message || 'Nieprawidłowa składnia pliku.' : null
+                        annotations.length > 0 ? annotations[0].message || 'Plik zawiera błąd składni.' : null
                     );
                 },
             });

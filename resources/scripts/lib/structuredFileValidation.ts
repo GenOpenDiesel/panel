@@ -23,6 +23,26 @@ export const getStructuredFileType = (filename: string): StructuredFileType | nu
     return null;
 };
 
+export const getStructuredValidationSummary = (
+    filename: string,
+    issue?: StructuredValidationIssue | null
+): string => {
+    const type = getStructuredFileType(filename);
+
+    if (!type) {
+        return 'Plik zawiera błąd składni. Popraw go przed zapisem.';
+    }
+
+    const label = type === 'json' ? 'JSON' : 'YAML';
+    const line = issue && issue.line >= 0 ? issue.line + 1 : null;
+
+    if (line) {
+        return `Plik zawiera błąd składni ${label} (linia ${line}). Popraw go przed zapisem.`;
+    }
+
+    return `Plik zawiera błąd składni ${label}. Popraw go przed zapisem.`;
+};
+
 export const validateStructuredFileContent = (
     filename: string,
     content: string
@@ -82,7 +102,7 @@ export const getStructuredFileLintAnnotations = (
         {
             from,
             to: from,
-            message: issue.message,
+            message: getStructuredValidationSummary(filename, issue),
             severity: 'error',
         },
     ];

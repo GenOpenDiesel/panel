@@ -20,7 +20,9 @@ import ErrorBoundary from '@/components/elements/ErrorBoundary';
 import { encodePathSegments, hashToPath } from '@/helpers';
 import { dirname } from 'pathe';
 import CodemirrorEditor from '@/components/elements/CodemirrorEditor';
-import { validateStructuredFileContent } from '@/lib/structuredFileValidation';
+import { getStructuredValidationSummary, validateStructuredFileContent } from '@/lib/structuredFileValidation';
+import { Dialog } from '@/components/elements/dialog';
+import { Button as DialogButton } from '@/components/elements/button/index';
 
 export default () => {
     const [error, setError] = useState('');
@@ -31,6 +33,8 @@ export default () => {
     const [mode, setMode] = useState('text/plain');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [isDirty, setIsDirty] = useState(false);
+    const [validationModalOpen, setValidationModalOpen] = useState(false);
+    const [validationModalMessage, setValidationModalMessage] = useState('');
 
     const history = useHistory();
     const { hash } = useLocation();
@@ -58,13 +62,20 @@ export default () => {
             .then(() => setLoading(false));
     }, [action, uuid, hash]);
 
+    const showValidationModal = (filePath: string, issue?: ReturnType<typeof validateStructuredFileContent>) => {
+        setValidationModalMessage(getStructuredValidationSummary(filePath, issue));
+        setValidationModalOpen(true);
+    };
+
     const save = (name?: string) => {
         if (!fetchFileContent) {
             return;
         }
 
+        const filePath = name || hashToPath(hash);
+
         if (isDirty && validationError) {
-            addError({ message: validationError, key: 'files:view' });
+            showValidationModal(filePath);
 
             return;
         }
@@ -73,13 +84,13 @@ export default () => {
         clearFlashes('files:view');
         fetchFileContent()
             .then((content) => {
-                const filePath = name || hashToPath(hash);
-
                 if (isDirty) {
                     const issue = validateStructuredFileContent(filePath, content);
 
                     if (issue) {
-                        throw new Error(issue.message);
+                        showValidationModal(filePath, issue);
+
+                        throw new Error('validation');
                     }
                 }
 
@@ -94,6 +105,10 @@ export default () => {
                 return Promise.resolve();
             })
             .catch((error) => {
+                if (error instanceof Error && error.message === 'validation') {
+                    return;
+                }
+
                 console.error(error);
                 addError({ message: httpErrorToHuman(error), key: 'files:view' });
             })
@@ -131,13 +146,20 @@ export default () => {
                     save(name);
                 }}
             />
+            <Dialog
+                open={validationModalOpen}
+                onClose={() => setValidationModalOpen(false)}
+                title={'Nie można zapisać pliku'}
+            >
+                <p css={tw`text-sm text-neutral-300 mt-2`}>{validationModalMessage}</p>
+                <div css={tw`flex justify-end mt-6`}>
+                    <DialogButton type={'button'} onClick={() => setValidationModalOpen(false)}>
+                        OK
+                    </DialogButton>
+                </div>
+            </Dialog>
             <div css={tw`relative`}>
                 <SpinnerOverlay visible={loading} />
-                {isDirty && validationError && (
-                    <div css={tw`mb-3 rounded border-l-4 border-red-500 bg-neutral-900 p-3`}>
-                        <p css={tw`text-sm text-red-400`}>{validationError}</p>
-                    </div>
-                )}
                 <CodemirrorEditor
                     mode={mode}
                     filename={hash.replace(/^#/, '')}
@@ -171,13 +193,13 @@ export default () => {
                 </div>
                 {action === 'edit' ? (
                     <Can action={'file.update'}>
-                        <Button css={tw`flex-1 sm:flex-none`} disabled={isDirty && !!validationError} onClick={() => save()}>
+                        <Button css={tw`flex-1 sm:flex-none`} onClick={() => save()}>
                             Save Content
                         </Button>
                     </Can>
                 ) : (
                     <Can action={'file.create'}>
-                        <Button css={tw`flex-1 sm:flex-none`} disabled={isDirty && !!validationError} onClick={() => setModalVisible(true)}>
+                        <Button css={tw`flex-1 sm:flex-none`} onClick={() => setModalVisible(true)}>
                             Create File
                         </Button>
                     </Can>
