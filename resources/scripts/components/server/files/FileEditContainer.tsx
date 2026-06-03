@@ -20,6 +20,7 @@ import ErrorBoundary from '@/components/elements/ErrorBoundary';
 import { encodePathSegments, hashToPath } from '@/helpers';
 import { dirname } from 'pathe';
 import CodemirrorEditor from '@/components/elements/CodemirrorEditor';
+import { validateStructuredFileContent } from '@/lib/structuredFileValidation';
 
 export default () => {
     const [error, setError] = useState('');
@@ -28,6 +29,7 @@ export default () => {
     const [content, setContent] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [mode, setMode] = useState('text/plain');
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     const history = useHistory();
     const { hash } = useLocation();
@@ -60,10 +62,25 @@ export default () => {
             return;
         }
 
+        if (validationError) {
+            addError({ message: validationError, key: 'files:view' });
+
+            return;
+        }
+
         setLoading(true);
         clearFlashes('files:view');
         fetchFileContent()
-            .then((content) => saveFileContents(uuid, name || hashToPath(hash), content))
+            .then((content) => {
+                const filePath = name || hashToPath(hash);
+                const issue = validateStructuredFileContent(filePath, content);
+
+                if (issue) {
+                    throw new Error(issue.message);
+                }
+
+                return saveFileContents(uuid, filePath, content);
+            })
             .then(() => {
                 if (name) {
                     history.push(`/server/${id}/files/edit#/${encodePathSegments(name)}`);
@@ -112,11 +129,17 @@ export default () => {
             />
             <div css={tw`relative`}>
                 <SpinnerOverlay visible={loading} />
+                {validationError && (
+                    <div css={tw`mb-3 rounded border-l-4 border-red-500 bg-neutral-900 p-3`}>
+                        <p css={tw`text-sm text-red-400`}>{validationError}</p>
+                    </div>
+                )}
                 <CodemirrorEditor
                     mode={mode}
                     filename={hash.replace(/^#/, '')}
                     onModeChanged={setMode}
                     initialContent={content}
+                    onValidationChange={setValidationError}
                     fetchContent={(value) => {
                         fetchFileContent = value;
                     }}
@@ -141,13 +164,13 @@ export default () => {
                 </div>
                 {action === 'edit' ? (
                     <Can action={'file.update'}>
-                        <Button css={tw`flex-1 sm:flex-none`} onClick={() => save()}>
+                        <Button css={tw`flex-1 sm:flex-none`} disabled={!!validationError} onClick={() => save()}>
                             Save Content
                         </Button>
                     </Can>
                 ) : (
                     <Can action={'file.create'}>
-                        <Button css={tw`flex-1 sm:flex-none`} onClick={() => setModalVisible(true)}>
+                        <Button css={tw`flex-1 sm:flex-none`} disabled={!!validationError} onClick={() => setModalVisible(true)}>
                             Create File
                         </Button>
                     </Can>

@@ -39,6 +39,10 @@ require('codemirror/addon/search/matchesonscrollbar.css');
 require('codemirror/addon/search/matchesonscrollbar');
 require('codemirror/addon/search/search');
 require('codemirror/addon/search/searchcursor');
+require('codemirror/addon/lint/lint.css');
+require('codemirror/addon/lint/lint');
+
+import { getStructuredFileLintAnnotations, getStructuredFileType } from '@/lib/structuredFileValidation';
 
 require('codemirror/mode/brainfuck/brainfuck');
 require('codemirror/mode/clike/clike');
@@ -113,6 +117,7 @@ export interface Props {
     onModeChanged: (mode: string) => void;
     fetchContent: (callback: () => Promise<string>) => void;
     onContentSaved: () => void;
+    onValidationChange?: (error: string | null) => void;
 }
 
 const findModeByFilename = (filename: string) => {
@@ -143,7 +148,7 @@ const findModeByFilename = (filename: string) => {
     return undefined;
 };
 
-export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged }: Props) => {
+export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged, onValidationChange }: Props) => {
     const [editor, setEditor] = useState<CodeMirror.Editor>();
 
     const ref = useCallback((node) => {
@@ -189,6 +194,34 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
     useEffect(() => {
         editor && editor.setOption('mode', mode);
     }, [editor, mode]);
+
+    useEffect(() => {
+        if (!editor) {
+            return;
+        }
+
+        const structuredType = filename ? getStructuredFileType(filename) : null;
+
+        if (!structuredType) {
+            editor.setOption('lint', false);
+            editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']);
+            onValidationChange?.(null);
+
+            return;
+        }
+
+        editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter', 'CodeMirror-lint-markers']);
+        editor.setOption('lint', {
+            delay: 400,
+            lintOnChange: true,
+            getAnnotations: (content: string) => getStructuredFileLintAnnotations(filename, content),
+            onUpdateLinting: (annotations: CodeMirror.Annotation[]) => {
+                onValidationChange?.(
+                    annotations.length > 0 ? annotations[0].message || 'Nieprawidłowa składnia pliku.' : null
+                );
+            },
+        });
+    }, [editor, filename, onValidationChange]);
 
     useEffect(() => {
         if (editor) {
