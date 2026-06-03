@@ -38,11 +38,15 @@ class UserDashboardLayoutsCommand extends Command
         }
 
         $serverUuids = $users->flatMap(function (User $user) {
-            $layout = $user->dashboard_layout ?? [];
+            $scoped = $this->normalizeStoredLayout($user->dashboard_layout);
 
-            return collect($layout['sections'] ?? [])
-                ->flatMap(fn (array $section) => $section['serverUuids'] ?? [])
-                ->merge($layout['unsectionedOrder'] ?? []);
+            return collect(['own', 'admin'])->flatMap(function (string $scope) use ($scoped) {
+                $layout = $scoped[$scope];
+
+                return collect($layout['sections'] ?? [])
+                    ->flatMap(fn (array $section) => $section['serverUuids'] ?? [])
+                    ->merge($layout['unsectionedOrder'] ?? []);
+            });
         })->unique()->values();
 
         $servers = Server::query()
@@ -51,18 +55,8 @@ class UserDashboardLayoutsCommand extends Command
             ->keyBy('uuid');
 
         $output = $users->map(function (User $user) use ($servers) {
-            $layout = $user->dashboard_layout ?? [
-                'sortMode' => null,
-                'sections' => [],
-                'unsectionedOrder' => [],
-            ];
-
-            $sectioned = collect($layout['sections'] ?? [])
-                ->flatMap(fn (array $section) => $section['serverUuids'] ?? []);
-
-            $resolve = fn (string $uuid) => $servers->has($uuid)
-                ? ['uuid' => $uuid, 'id' => $servers->get($uuid)->id, 'name' => $servers->get($uuid)->name]
-                : ['uuid' => $uuid, 'id' => null, 'name' => null];
+            $stored = $user->dashboard_layout ?? [];
+            $scoped = $this->normalizeStoredLayout($stored);
 
             return [
                 'user' => [
@@ -70,18 +64,9 @@ class UserDashboardLayoutsCommand extends Command
                     'username' => $user->username,
                     'email' => $user->email,
                 ],
-                'layout' => [
-                    'sortMode' => $layout['sortMode'] ?? null,
-                    'sections' => collect($layout['sections'] ?? [])->map(fn (array $section) => [
-                        'id' => $section['id'] ?? null,
-                        'name' => $section['name'] ?? null,
-                        'servers' => collect($section['serverUuids'] ?? [])->map($resolve)->values()->all(),
-                    ])->values()->all(),
-                    'unsectioned' => collect($layout['unsectionedOrder'] ?? [])
-                        ->reject(fn (string $uuid) => $sectioned->contains($uuid))
-                        ->map($resolve)
-                        ->values()
-                        ->all(),
+                'layouts' => [
+                    'own' => $this->formatLayout($scoped['own'], $servers),
+                    'admin' => $this->formatLayout($scoped['admin'], $servers),
                 ],
             ];
         })->values()->all();
@@ -94,51 +79,110 @@ class UserDashboardLayoutsCommand extends Command
 
         foreach ($output as $entry) {
             $user = $entry['user'];
-            $layout = $entry['layout'];
 
             $this->newLine();
             $this->info(sprintf('%s (%s) [ID: %d]', $user['username'], $user['email'], $user['id']));
-            $this->line('Sortowanie: ' . ($layout['sortMode'] ?? 'brak'));
 
-            if (empty($layout['sections']) && empty($layout['unsectioned']) && is_null($layout['sortMode'])) {
-                $this->line('  Brak zapisanego układu.');
-
-                continue;
-            }
-
-            foreach ($layout['sections'] as $section) {
+            foreach (['own' => 'Własne serwery', 'admin' => 'Obce serwery (admin)'] as $scope => $label) {
+                $layout = $entry['layouts'][$scope];
                 $this->line('');
-                $this->line('  [Sekcja] ' . ($section['name'] ?? '?'));
+                $this->comment($label);
+                $this->line('Sortowanie: ' . ($layout['sortMode'] ?? 'brak'));
 
-                if (empty($section['servers'])) {
-                    $this->line('    (pusta)');
+                if (empty($layout['sections']) && empty($layout['unsectioned']) && is_null($layout['sortMode'])) {
+                    $this->line('  Brak zapisanego układu.');
 
                     continue;
                 }
 
-                foreach ($section['servers'] as $server) {
-                    $label = $server['name']
-                        ? sprintf('%s (#%d)', $server['name'], $server['id'])
-                        : sprintf('Nieznany serwer (%s)', $server['uuid']);
+                foreach ($layout['sections'] as $section) {
+                    $this->line('');
+                    $this->line('  [Sekcja] ' . ($section['name'] ?? '?'));
 
-                    $this->line('    - ' . $label);
+                    if (empty($section['servers'])) {
+                        $this->line('    (pusta)');
+
+                        continue;
+                    }
+
+                    foreach ($section['servers'] as $server) {
+                        $serverLabel = $server['name']
+                            ? sprintf('%s (#%d)', $server['name'], $server['id'])
+                            : sprintf('Nieznany serwer (%s)', $server['uuid']);
+
+                        $this->line('    - ' . $serverLabel);
+                    }
                 }
-            }
 
-            if (!empty($layout['unsectioned'])) {
-                $this->line('');
-                $this->line('  [Pozostałe serwery]');
+                if (!empty($layout['unsectioned'])) {
+                    $this->line('');
+                    $this->line('  [Pozostałe serwery]');
 
-                foreach ($layout['unsectioned'] as $server) {
-                    $label = $server['name']
-                        ? sprintf('%s (#%d)', $server['name'], $server['id'])
-                        : sprintf('Nieznany serwer (%s)', $server['uuid']);
+                    foreach ($layout['unsectioned'] as $server) {
+                        $serverLabel = $server['name']
+                            ? sprintf('%s (#%d)', $server['name'], $server['id'])
+                            : sprintf('Nieznany serwer (%s)', $server['uuid']);
 
-                    $this->line('    - ' . $label);
+                        $this->line('    - ' . $serverLabel);
+                    }
                 }
             }
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $layout
+     * @return array<string, array<string, mixed>>
+     */
+    private function normalizeStoredLayout(?array $layout): array
+    {
+        if (empty($layout)) {
+            return [
+                'own' => ['sortMode' => null, 'sections' => [], 'unsectionedOrder' => []],
+                'admin' => ['sortMode' => null, 'sections' => [], 'unsectionedOrder' => []],
+            ];
+        }
+
+        if (array_key_exists('own', $layout) || array_key_exists('admin', $layout)) {
+            return [
+                'own' => is_array($layout['own'] ?? null) ? $layout['own'] : ['sortMode' => null, 'sections' => [], 'unsectionedOrder' => []],
+                'admin' => is_array($layout['admin'] ?? null) ? $layout['admin'] : ['sortMode' => null, 'sections' => [], 'unsectionedOrder' => []],
+            ];
+        }
+
+        return [
+            'own' => $layout,
+            'admin' => ['sortMode' => null, 'sections' => [], 'unsectionedOrder' => []],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $layout
+     * @return array<string, mixed>
+     */
+    private function formatLayout(array $layout, $servers): array
+    {
+        $sectioned = collect($layout['sections'] ?? [])
+            ->flatMap(fn (array $section) => $section['serverUuids'] ?? []);
+
+        $resolve = fn (string $uuid) => $servers->has($uuid)
+            ? ['uuid' => $uuid, 'id' => $servers->get($uuid)->id, 'name' => $servers->get($uuid)->name]
+            : ['uuid' => $uuid, 'id' => null, 'name' => null];
+
+        return [
+            'sortMode' => $layout['sortMode'] ?? null,
+            'sections' => collect($layout['sections'] ?? [])->map(fn (array $section) => [
+                'id' => $section['id'] ?? null,
+                'name' => $section['name'] ?? null,
+                'servers' => collect($section['serverUuids'] ?? [])->map($resolve)->values()->all(),
+            ])->values()->all(),
+            'unsectioned' => collect($layout['unsectionedOrder'] ?? [])
+                ->reject(fn (string $uuid) => $sectioned->contains($uuid))
+                ->map($resolve)
+                ->values()
+                ->all(),
+        ];
     }
 }

@@ -1,23 +1,31 @@
 import http from '@/api/http';
-import { DashboardLayout, DEFAULT_DASHBOARD_LAYOUT } from '@/lib/dashboardLayout';
+import {
+    DEFAULT_SCOPED_DASHBOARD_LAYOUTS,
+    normalizeScopedLayouts,
+    ScopedDashboardLayouts,
+} from '@/lib/dashboardLayout';
 
 interface DashboardLayoutResponse {
     object: string;
-    attributes: DashboardLayout;
+    attributes: unknown;
 }
 
-export const getDashboardLayout = (): Promise<DashboardLayout> => {
+export const getDashboardLayout = (): Promise<ScopedDashboardLayouts> => {
     return new Promise((resolve, reject) => {
         http.get('/api/client/account/dashboard-layout')
-            .then(({ data }) => resolve((data as DashboardLayoutResponse).attributes ?? DEFAULT_DASHBOARD_LAYOUT))
+            .then(({ data }) =>
+                resolve(normalizeScopedLayouts((data as DashboardLayoutResponse).attributes ?? DEFAULT_SCOPED_DASHBOARD_LAYOUTS))
+            )
             .catch(reject);
     });
 };
 
-export const updateDashboardLayout = (layout: DashboardLayout): Promise<DashboardLayout> => {
+export const updateDashboardLayout = (layout: ScopedDashboardLayouts): Promise<ScopedDashboardLayouts> => {
     return new Promise((resolve, reject) => {
         http.put('/api/client/account/dashboard-layout', { layout })
-            .then(({ data }) => resolve((data as DashboardLayoutResponse).attributes ?? layout))
+            .then(({ data }) =>
+                resolve(normalizeScopedLayouts((data as DashboardLayoutResponse).attributes ?? layout))
+            )
             .catch(reject);
     });
 };

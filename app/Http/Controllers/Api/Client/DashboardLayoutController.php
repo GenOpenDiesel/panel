@@ -15,7 +15,7 @@ class DashboardLayoutController extends ClientApiController
     {
         return new JsonResponse([
             'object' => 'dashboard_layout',
-            'attributes' => $request->user()->dashboard_layout ?? $this->defaultLayout(),
+            'attributes' => $this->normalizeLayout($request->user()->dashboard_layout),
         ]);
     }
 
@@ -25,18 +25,69 @@ class DashboardLayoutController extends ClientApiController
     public function update(UpdateDashboardLayoutRequest $request): JsonResponse
     {
         $user = $request->user();
-        $user->forceFill(['dashboard_layout' => $request->input('layout')])->save();
+        $layout = $this->normalizeLayout($request->input('layout'));
+
+        $user->forceFill(['dashboard_layout' => $layout])->save();
 
         return new JsonResponse([
             'object' => 'dashboard_layout',
-            'attributes' => $user->dashboard_layout,
+            'attributes' => $layout,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $layout
+     * @return array<string, mixed>
+     */
+    private function normalizeLayout(?array $layout): array
+    {
+        if (empty($layout)) {
+            return $this->defaultScopedLayout();
+        }
+
+        if (array_key_exists('own', $layout) || array_key_exists('admin', $layout)) {
+            return [
+                'own' => $this->normalizeSingleLayout(is_array($layout['own'] ?? null) ? $layout['own'] : []),
+                'admin' => $this->normalizeSingleLayout(is_array($layout['admin'] ?? null) ? $layout['admin'] : []),
+            ];
+        }
+
+        return [
+            'own' => $this->normalizeSingleLayout($layout),
+            'admin' => $this->defaultSingleLayout(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $layout
+     * @return array<string, mixed>
+     */
+    private function normalizeSingleLayout(array $layout): array
+    {
+        return [
+            'sortMode' => in_array($layout['sortMode'] ?? null, ['custom', 'name_asc', 'name_desc'], true)
+                ? $layout['sortMode']
+                : 'name_asc',
+            'sections' => array_values($layout['sections'] ?? []),
+            'unsectionedOrder' => array_values($layout['unsectionedOrder'] ?? []),
+        ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function defaultLayout(): array
+    private function defaultScopedLayout(): array
+    {
+        return [
+            'own' => $this->defaultSingleLayout(),
+            'admin' => $this->defaultSingleLayout(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultSingleLayout(): array
     {
         return [
             'sortMode' => 'name_asc',

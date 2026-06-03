@@ -15,10 +15,56 @@ export interface DashboardLayout {
     unsectionedOrder: string[];
 }
 
+export type DashboardLayoutScope = 'own' | 'admin';
+
+export interface ScopedDashboardLayouts {
+    own: DashboardLayout;
+    admin: DashboardLayout;
+}
+
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
     sortMode: 'name_asc',
     sections: [],
     unsectionedOrder: [],
+};
+
+export const DEFAULT_SCOPED_DASHBOARD_LAYOUTS: ScopedDashboardLayouts = {
+    own: { ...DEFAULT_DASHBOARD_LAYOUT },
+    admin: { ...DEFAULT_DASHBOARD_LAYOUT },
+};
+
+const isDashboardLayout = (value: unknown): value is DashboardLayout => {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const layout = value as DashboardLayout;
+
+    return typeof layout.sortMode === 'string' && Array.isArray(layout.sections) && Array.isArray(layout.unsectionedOrder);
+};
+
+export const normalizeScopedLayouts = (value: unknown): ScopedDashboardLayouts => {
+    if (!value || typeof value !== 'object') {
+        return { ...DEFAULT_SCOPED_DASHBOARD_LAYOUTS };
+    }
+
+    const record = value as Record<string, unknown>;
+
+    if ('own' in record || 'admin' in record) {
+        return {
+            own: isDashboardLayout(record.own) ? record.own : { ...DEFAULT_DASHBOARD_LAYOUT },
+            admin: isDashboardLayout(record.admin) ? record.admin : { ...DEFAULT_DASHBOARD_LAYOUT },
+        };
+    }
+
+    if (isDashboardLayout(value)) {
+        return {
+            own: value,
+            admin: { ...DEFAULT_DASHBOARD_LAYOUT },
+        };
+    }
+
+    return { ...DEFAULT_SCOPED_DASHBOARD_LAYOUTS };
 };
 
 export interface OrganizedDashboard {

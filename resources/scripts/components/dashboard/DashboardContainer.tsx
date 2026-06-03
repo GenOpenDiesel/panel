@@ -20,7 +20,8 @@ export default () => {
     const uuid = useStoreState((state) => state.user.data!.uuid);
     const [showOnlyAdmin, setShowOnlyAdmin] = usePersistedState(`${uuid}:show_all_servers`, false);
     const [isOrganizing, setIsOrganizing] = useState(false);
-    const { layout, setLayout, flushLayout, isLoading: isLayoutLoading } = useDashboardLayout();
+    const layoutScope = showOnlyAdmin && rootAdmin ? 'admin' : 'own';
+    const { layout, setLayout, flushLayout, isLoading: isLayoutLoading } = useDashboardLayout(layoutScope);
 
     const { data: servers, error } = useSWR<Server[]>(
         ['/api/client/servers/all', showOnlyAdmin && rootAdmin],

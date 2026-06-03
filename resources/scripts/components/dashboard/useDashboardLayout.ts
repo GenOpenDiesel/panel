@@ -2,23 +2,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { getDashboardLayout, updateDashboardLayout } from '@/api/account/dashboardLayout';
 import { useUserSWRKey } from '@/plugins/useSWRKey';
-import { DashboardLayout, DEFAULT_DASHBOARD_LAYOUT } from '@/lib/dashboardLayout';
+import {
+    DashboardLayout,
+    DashboardLayoutScope,
+    DEFAULT_SCOPED_DASHBOARD_LAYOUTS,
+    normalizeScopedLayouts,
+    ScopedDashboardLayouts,
+} from '@/lib/dashboardLayout';
 
-export default () => {
+export default (scope: DashboardLayoutScope) => {
     const swrKey = useUserSWRKey(['account', 'dashboard-layout']);
     const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingLayoutRef = useRef<DashboardLayout | null>(null);
-    const layoutRef = useRef<DashboardLayout>(DEFAULT_DASHBOARD_LAYOUT);
+    const pendingLayoutRef = useRef<ScopedDashboardLayouts | null>(null);
+    const scopedLayoutsRef = useRef<ScopedDashboardLayouts>(DEFAULT_SCOPED_DASHBOARD_LAYOUTS);
     const dirtyRef = useRef(false);
     const isSavingRef = useRef(false);
     const savePromiseRef = useRef<Promise<boolean> | null>(null);
-    const [layout, setLayoutState] = useState<DashboardLayout>(DEFAULT_DASHBOARD_LAYOUT);
+    const [scopedLayouts, setScopedLayouts] = useState<ScopedDashboardLayouts>(DEFAULT_SCOPED_DASHBOARD_LAYOUTS);
 
     const { data, error, mutate } = useSWR(swrKey, getDashboardLayout, {
         revalidateOnFocus: false,
     });
 
-    layoutRef.current = layout;
+    scopedLayoutsRef.current = scopedLayouts;
 
     useEffect(() => {
         if (!data) {
@@ -26,18 +32,19 @@ export default () => {
         }
 
         if (!dirtyRef.current) {
-            setLayoutState(data);
-            layoutRef.current = data;
+            const normalized = normalizeScopedLayouts(data);
+            setScopedLayouts(normalized);
+            scopedLayoutsRef.current = normalized;
         }
     }, [data]);
 
     const flushLayout = useCallback(
-        async (layoutToSave?: DashboardLayout, force = false): Promise<boolean> => {
+        async (layoutToSave?: ScopedDashboardLayouts, force = false): Promise<boolean> => {
             if (isSavingRef.current && savePromiseRef.current) {
                 await savePromiseRef.current;
             }
 
-            const nextLayout = layoutToSave ?? pendingLayoutRef.current ?? layoutRef.current;
+            const nextLayout = layoutToSave ?? pendingLayoutRef.current ?? scopedLayoutsRef.current;
             if (!nextLayout) {
                 return true;
             }
@@ -58,8 +65,8 @@ export default () => {
                     const saved = await updateDashboardLayout(nextLayout);
                     pendingLayoutRef.current = null;
                     dirtyRef.current = false;
-                    layoutRef.current = saved;
-                    setLayoutState(saved);
+                    scopedLayoutsRef.current = saved;
+                    setScopedLayouts(saved);
                     mutate(saved, false);
 
                     return true;
@@ -83,7 +90,7 @@ export default () => {
     );
 
     const persistLayout = useCallback(
-        (nextLayout: DashboardLayout) => {
+        (nextLayout: ScopedDashboardLayouts) => {
             pendingLayoutRef.current = nextLayout;
             dirtyRef.current = true;
 
@@ -100,15 +107,20 @@ export default () => {
 
     const setLayout = useCallback(
         (updater: DashboardLayout | ((current: DashboardLayout) => DashboardLayout)) => {
-            setLayoutState((current) => {
-                const nextLayout = typeof updater === 'function' ? updater(current) : updater;
-                layoutRef.current = nextLayout;
-                persistLayout(nextLayout);
+            setScopedLayouts((current) => {
+                const nextScopeLayout =
+                    typeof updater === 'function' ? updater(current[scope]) : updater;
+                const nextLayouts = {
+                    ...current,
+                    [scope]: nextScopeLayout,
+                };
+                scopedLayoutsRef.current = nextLayouts;
+                persistLayout(nextLayouts);
 
-                return nextLayout;
+                return nextLayouts;
             });
         },
-        [persistLayout]
+        [persistLayout, scope]
     );
 
     useEffect(() => {
@@ -118,7 +130,7 @@ export default () => {
     }, [flushLayout]);
 
     return {
-        layout,
+        layout: scopedLayouts[scope],
         setLayout,
         flushLayout,
         isLoading: !data && !error,
