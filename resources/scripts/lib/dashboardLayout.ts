@@ -29,9 +29,31 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
 };
 
 export const DEFAULT_SCOPED_DASHBOARD_LAYOUTS: ScopedDashboardLayouts = {
-    own: { ...DEFAULT_DASHBOARD_LAYOUT },
-    admin: { ...DEFAULT_DASHBOARD_LAYOUT },
+    own: {
+        sortMode: DEFAULT_DASHBOARD_LAYOUT.sortMode,
+        sections: [],
+        unsectionedOrder: [],
+    },
+    admin: {
+        sortMode: DEFAULT_DASHBOARD_LAYOUT.sortMode,
+        sections: [],
+        unsectionedOrder: [],
+    },
 };
+
+export const cloneDashboardLayout = (layout: DashboardLayout): DashboardLayout => ({
+    sortMode: layout.sortMode,
+    sections: layout.sections.map((section) => ({
+        ...section,
+        serverUuids: [...section.serverUuids],
+    })),
+    unsectionedOrder: [...layout.unsectionedOrder],
+});
+
+export const cloneScopedDashboardLayouts = (layouts: ScopedDashboardLayouts): ScopedDashboardLayouts => ({
+    own: cloneDashboardLayout(layouts.own),
+    admin: cloneDashboardLayout(layouts.admin),
+});
 
 const isDashboardLayout = (value: unknown): value is DashboardLayout => {
     if (!value || typeof value !== 'object') {
@@ -45,26 +67,26 @@ const isDashboardLayout = (value: unknown): value is DashboardLayout => {
 
 export const normalizeScopedLayouts = (value: unknown): ScopedDashboardLayouts => {
     if (!value || typeof value !== 'object') {
-        return { ...DEFAULT_SCOPED_DASHBOARD_LAYOUTS };
+        return cloneScopedDashboardLayouts(DEFAULT_SCOPED_DASHBOARD_LAYOUTS);
     }
 
     const record = value as Record<string, unknown>;
 
     if ('own' in record || 'admin' in record) {
-        return {
-            own: isDashboardLayout(record.own) ? record.own : { ...DEFAULT_DASHBOARD_LAYOUT },
-            admin: isDashboardLayout(record.admin) ? record.admin : { ...DEFAULT_DASHBOARD_LAYOUT },
-        };
+        return cloneScopedDashboardLayouts({
+            own: isDashboardLayout(record.own) ? record.own : { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
+            admin: isDashboardLayout(record.admin) ? record.admin : { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
+        });
     }
 
     if (isDashboardLayout(value)) {
-        return {
+        return cloneScopedDashboardLayouts({
             own: value,
-            admin: { ...DEFAULT_DASHBOARD_LAYOUT },
-        };
+            admin: { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
+        });
     }
 
-    return { ...DEFAULT_SCOPED_DASHBOARD_LAYOUTS };
+    return cloneScopedDashboardLayouts(DEFAULT_SCOPED_DASHBOARD_LAYOUTS);
 };
 
 export interface OrganizedDashboard {
@@ -95,11 +117,15 @@ const sortByCustomOrder = (servers: Server[], order: string[]): Server[] => {
     });
 };
 
-export const syncLayoutWithServers = (layout: DashboardLayout, servers: Server[]): DashboardLayout => {
+export const syncLayoutWithServers = (
+    layout: DashboardLayout,
+    servers: Server[],
+    options?: { pruneEmptySections?: boolean }
+): DashboardLayout => {
     const available = new Set(servers.map((server) => server.uuid));
     const referenced = new Set<string>();
 
-    const sections = layout.sections.map((section) => {
+    let sections = layout.sections.map((section) => {
         const serverUuids = section.serverUuids.filter((uuid) => {
             if (!available.has(uuid) || referenced.has(uuid)) {
                 return false;
@@ -112,6 +138,10 @@ export const syncLayoutWithServers = (layout: DashboardLayout, servers: Server[]
 
         return { ...section, serverUuids };
     });
+
+    if (options?.pruneEmptySections) {
+        sections = sections.filter((section) => section.serverUuids.length > 0);
+    }
 
     const unsectionedOrder = layout.unsectionedOrder.filter((uuid) => {
         if (!available.has(uuid) || referenced.has(uuid)) {
@@ -132,23 +162,29 @@ export const syncLayoutWithServers = (layout: DashboardLayout, servers: Server[]
     };
 };
 
-export const organizeDashboardServers = (servers: Server[], layout: DashboardLayout): OrganizedDashboard => {
+export const organizeDashboardServers = (
+    servers: Server[],
+    layout: DashboardLayout,
+    options?: { includeEmptySections?: boolean }
+): OrganizedDashboard => {
     const synced = syncLayoutWithServers(layout, servers);
     const serverMap = new Map(servers.map((server) => [server.uuid, server]));
 
-    const sections = synced.sections.map((section) => {
-        let sectionServers = section.serverUuids
-            .map((uuid) => serverMap.get(uuid))
-            .filter((server): server is Server => !!server);
+    const sections = synced.sections
+        .map((section) => {
+            let sectionServers = section.serverUuids
+                .map((uuid) => serverMap.get(uuid))
+                .filter((server): server is Server => !!server);
 
-        if (synced.sortMode === 'name_asc') {
-            sectionServers = sortByName(sectionServers, 'asc');
-        } else if (synced.sortMode === 'name_desc') {
-            sectionServers = sortByName(sectionServers, 'desc');
-        }
+            if (synced.sortMode === 'name_asc') {
+                sectionServers = sortByName(sectionServers, 'asc');
+            } else if (synced.sortMode === 'name_desc') {
+                sectionServers = sortByName(sectionServers, 'desc');
+            }
 
-        return { section, servers: sectionServers };
-    });
+            return { section, servers: sectionServers };
+        })
+        .filter(({ servers: sectionServers }) => options?.includeEmptySections || sectionServers.length > 0);
 
     const sectioned = new Set(synced.sections.flatMap((section) => section.serverUuids));
     let unsectioned = servers.filter((server) => !sectioned.has(server.uuid));

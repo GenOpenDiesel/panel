@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import getAllServers from '@/api/getAllServers';
 import Spinner from '@/components/elements/Spinner';
 import PageContentBlock from '@/components/elements/PageContentBlock';
@@ -22,6 +22,14 @@ export default () => {
     const [isOrganizing, setIsOrganizing] = useState(false);
     const layoutScope = showOnlyAdmin && rootAdmin ? 'admin' : 'own';
     const { layout, setLayout, flushLayout, isLoading: isLayoutLoading } = useDashboardLayout(layoutScope);
+    const prevLayoutScopeRef = useRef(layoutScope);
+
+    useEffect(() => {
+        if (prevLayoutScopeRef.current !== layoutScope) {
+            setIsOrganizing(false);
+            prevLayoutScopeRef.current = layoutScope;
+        }
+    }, [layoutScope]);
 
     const { data: servers, error } = useSWR<Server[]>(
         ['/api/client/servers/all', showOnlyAdmin && rootAdmin],
@@ -58,7 +66,7 @@ export default () => {
                     onToggleOrganizing={() => {
                         setIsOrganizing((current) => {
                             if (current && servers) {
-                                const syncedLayout = syncLayoutWithServers(layout, servers);
+                                const syncedLayout = syncLayoutWithServers(layout, servers, { pruneEmptySections: true });
                                 void flushLayout(syncedLayout, true).then((saved) => {
                                     if (!saved) {
                                         clearAndAddHttpError({
@@ -87,6 +95,7 @@ export default () => {
                 <Spinner centered size={'large'} />
             ) : servers && servers.length > 0 ? (
                 <DashboardServerList
+                    key={layoutScope}
                     servers={servers}
                     layout={layout}
                     isOrganizing={isOrganizing}

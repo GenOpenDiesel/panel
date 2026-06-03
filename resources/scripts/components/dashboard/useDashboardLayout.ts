@@ -3,6 +3,8 @@ import useSWR from 'swr';
 import { getDashboardLayout, updateDashboardLayout } from '@/api/account/dashboardLayout';
 import { useUserSWRKey } from '@/plugins/useSWRKey';
 import {
+    cloneDashboardLayout,
+    cloneScopedDashboardLayouts,
     DashboardLayout,
     DashboardLayoutScope,
     DEFAULT_SCOPED_DASHBOARD_LAYOUTS,
@@ -38,13 +40,31 @@ export default (scope: DashboardLayoutScope) => {
         }
     }, [data]);
 
+    const resolveLayoutToSave = useCallback(
+        (layoutToSave?: ScopedDashboardLayouts | DashboardLayout): ScopedDashboardLayouts => {
+            if (!layoutToSave) {
+                return cloneScopedDashboardLayouts(pendingLayoutRef.current ?? scopedLayoutsRef.current);
+            }
+
+            if ('own' in layoutToSave && 'admin' in layoutToSave) {
+                return cloneScopedDashboardLayouts(layoutToSave as ScopedDashboardLayouts);
+            }
+
+            return cloneScopedDashboardLayouts({
+                ...scopedLayoutsRef.current,
+                [scope]: layoutToSave,
+            });
+        },
+        [scope]
+    );
+
     const flushLayout = useCallback(
-        async (layoutToSave?: ScopedDashboardLayouts, force = false): Promise<boolean> => {
+        async (layoutToSave?: ScopedDashboardLayouts | DashboardLayout, force = false): Promise<boolean> => {
             if (isSavingRef.current && savePromiseRef.current) {
                 await savePromiseRef.current;
             }
 
-            const nextLayout = layoutToSave ?? pendingLayoutRef.current ?? scopedLayoutsRef.current;
+            const nextLayout = resolveLayoutToSave(layoutToSave);
             if (!nextLayout) {
                 return true;
             }
@@ -63,11 +83,12 @@ export default (scope: DashboardLayoutScope) => {
 
                 try {
                     const saved = await updateDashboardLayout(nextLayout);
+                    const normalized = normalizeScopedLayouts(saved);
                     pendingLayoutRef.current = null;
                     dirtyRef.current = false;
-                    scopedLayoutsRef.current = saved;
-                    setScopedLayouts(saved);
-                    mutate(saved, false);
+                    scopedLayoutsRef.current = normalized;
+                    setScopedLayouts(normalized);
+                    mutate(normalized, false);
 
                     return true;
                 } catch {
@@ -86,7 +107,7 @@ export default (scope: DashboardLayoutScope) => {
 
             return saveOperation;
         },
-        [mutate]
+        [mutate, resolveLayoutToSave]
     );
 
     const persistLayout = useCallback(
@@ -108,12 +129,13 @@ export default (scope: DashboardLayoutScope) => {
     const setLayout = useCallback(
         (updater: DashboardLayout | ((current: DashboardLayout) => DashboardLayout)) => {
             setScopedLayouts((current) => {
+                const currentScopeLayout = cloneDashboardLayout(current[scope]);
                 const nextScopeLayout =
-                    typeof updater === 'function' ? updater(current[scope]) : updater;
-                const nextLayouts = {
+                    typeof updater === 'function' ? updater(currentScopeLayout) : updater;
+                const nextLayouts = cloneScopedDashboardLayouts({
                     ...current,
                     [scope]: nextScopeLayout,
-                };
+                });
                 scopedLayoutsRef.current = nextLayouts;
                 persistLayout(nextLayouts);
 
@@ -123,11 +145,14 @@ export default (scope: DashboardLayoutScope) => {
         [persistLayout, scope]
     );
 
+    const flushLayoutRef = useRef(flushLayout);
+    flushLayoutRef.current = flushLayout;
+
     useEffect(() => {
         return () => {
-            void flushLayout(undefined, true);
+            void flushLayoutRef.current(undefined, true);
         };
-    }, [flushLayout]);
+    }, []);
 
     return {
         layout: scopedLayouts[scope],

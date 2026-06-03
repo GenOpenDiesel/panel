@@ -64,11 +64,17 @@ class DashboardLayoutController extends ClientApiController
      */
     private function normalizeSingleLayout(array $layout): array
     {
+        $sections = array_values($layout['sections'] ?? []);
+
+        $sections = array_values(array_filter($sections, function ($section) {
+            return is_array($section) && ! empty($section['serverUuids'] ?? []);
+        }));
+
         return [
             'sortMode' => in_array($layout['sortMode'] ?? null, ['custom', 'name_asc', 'name_desc'], true)
                 ? $layout['sortMode']
                 : 'name_asc',
-            'sections' => array_values($layout['sections'] ?? []),
+            'sections' => $sections,
             'unsectionedOrder' => array_values($layout['unsectionedOrder'] ?? []),
         ];
     }

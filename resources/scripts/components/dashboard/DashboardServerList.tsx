@@ -247,7 +247,10 @@ export default ({ servers, layout, isOrganizing, onLayoutChange }: Props) => {
     const layoutRef = useRef(layout);
     layoutRef.current = layout;
 
-    const organized = useMemo(() => organizeDashboardServers(servers, layout), [servers, layout]);
+    const organized = useMemo(
+        () => organizeDashboardServers(servers, layout, { includeEmptySections: isOrganizing }),
+        [servers, layout, isOrganizing]
+    );
 
     const handleDropAt = (targetSectionId: string | null, targetIndex: number, payload: DragPayload) => {
         const currentLayout = layoutRef.current;
