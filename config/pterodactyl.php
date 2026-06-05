@@ -133,6 +133,30 @@ return [
         'max_edit_size' => env('PTERODACTYL_FILES_MAX_EDIT_SIZE', 1024 * 1024 * 4),
     ],
 
+    'file_search' => [
+        'max_file_size' => (int) env('PTERODACTYL_FILE_SEARCH_MAX_SIZE', 524288),
+        'max_files_per_scan' => (int) env('PTERODACTYL_FILE_SEARCH_MAX_FILES', 500),
+        'files_per_chunk' => (int) env('PTERODACTYL_FILE_SEARCH_FILES_PER_CHUNK', 15),
+        'session_ttl' => (int) env('PTERODACTYL_FILE_SEARCH_SESSION_TTL', 3600),
+        'excluded_directories' => ['world', 'cache', 'logs'],
+        'extensions' => [
+            'yml',
+            'yaml',
+            'json',
+            'txt',
+            'properties',
+            'conf',
+            'config',
+            'toml',
+            'ini',
+            'md',
+            'xml',
+            'csv',
+            'lang',
+            'cfg',
+        ],
+    ],
+
     'log_analysis' => [
         'log_path' => env('LOG_ANALYSIS_PATH', '/logs/latest.log'),
         'tail_bytes' => (int) env('LOG_ANALYSIS_TAIL_BYTES', 1024 * 1024 * 4),
