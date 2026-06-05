@@ -196,6 +196,19 @@ Route::group(['prefix' => 'mounts'], function () {
 
 /*
 |--------------------------------------------------------------------------
+| Backup Activity Controller Routes
+|--------------------------------------------------------------------------
+|
+| Endpoint: /admin/backups
+|
+*/
+Route::group(['prefix' => 'backups'], function () {
+    Route::get('/activity', [Admin\Backups\BackupActivityController::class, 'index'])->name('admin.backups.activity');
+    Route::get('/activity/logs.json', [Admin\Backups\BackupActivityController::class, 'logs'])->name('admin.backups.activity.logs');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Nest Controller Routes
 |--------------------------------------------------------------------------
 |

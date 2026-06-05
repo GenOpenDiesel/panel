@@ -13,9 +13,9 @@ export const getCloneCleanupPlugins = (uuid: string): Promise<ClonePlugin[]> => 
     });
 };
 
-export const applyCloneCleanup = (uuid: string, plugins: string[]): Promise<void> => {
+export const applyCloneCleanup = (uuid: string, plugins: string[], patterns?: string[]): Promise<void> => {
     return new Promise((resolve, reject) => {
-        http.post(`/api/client/servers/${uuid}/clone-cleanup`, { plugins })
+        http.post(`/api/client/servers/${uuid}/clone-cleanup`, { plugins, patterns })
             .then(() => resolve())
             .catch(reject);
     });

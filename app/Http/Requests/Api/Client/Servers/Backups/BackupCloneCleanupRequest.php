@@ -23,6 +23,13 @@ class BackupCloneCleanupRequest extends ClientApiRequest
                 Rule::notRegex('/[\/\\\\]/'),
                 Rule::notRegex('/\.\./'),
             ],
+            'patterns' => 'sometimes|array|max:100',
+            'patterns.*' => [
+                'string',
+                'max:255',
+                Rule::notRegex('/[\/\\\\]/'),
+                Rule::notRegex('/\.\./'),
+            ],
         ];
     }
 }

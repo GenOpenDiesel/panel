@@ -111,6 +111,11 @@
                                 <i class="fa fa-server"></i> <span>Servers</span>
                             </a>
                         </li>
+                        <li class="{{ Route::currentRouteName() === 'admin.backups.activity' ? 'active' : '' }}">
+                            <a href="{{ route('admin.backups.activity') }}">
+                                <i class="fa fa-history"></i> <span>Log backupów</span>
+                            </a>
+                        </li>
                         <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.users') ?: 'active' }}">
                             <a href="{{ route('admin.users') }}">
                                 <i class="fa fa-users"></i> <span>Users</span>
