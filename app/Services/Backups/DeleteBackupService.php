@@ -3,12 +3,14 @@
 namespace Pterodactyl\Services\Backups;
 
 use Illuminate\Http\Response;
+use Pterodactyl\Models\User;
 use Pterodactyl\Models\Backup;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Database\ConnectionInterface;
 use Pterodactyl\Extensions\Backups\BackupManager;
 use Pterodactyl\Repositories\Wings\DaemonBackupRepository;
 use Pterodactyl\Exceptions\Service\Backup\BackupLockedException;
+use Pterodactyl\Exceptions\Service\Backup\BackupProtectedException;
 use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
 
 class DeleteBackupService
@@ -17,6 +19,8 @@ class DeleteBackupService
         private ConnectionInterface $connection,
         private BackupManager $manager,
         private DaemonBackupRepository $daemonBackupRepository,
+        private ProtectedBackupService $protectedBackupService,
+        private ProtectedBackupDeletionAlertService $protectedBackupDeletionAlertService,
     ) {
     }
 
@@ -26,8 +30,16 @@ class DeleteBackupService
      *
      * @throws \Throwable
      */
-    public function handle(Backup $backup): void
+    public function handle(Backup $backup, ?User $user = null): void
     {
+        if (!$this->protectedBackupService->canDelete($backup, $user)) {
+            if ($user !== null) {
+                $this->protectedBackupDeletionAlertService->notify($backup, $user);
+            }
+
+            throw new BackupProtectedException();
+        }
+
         // If the backup is marked as failed it can still be deleted, even if locked
         // since the UI doesn't allow you to unlock a failed backup in the first place.
         //

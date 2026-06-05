@@ -151,7 +151,7 @@ class BackupController extends ClientApiController
             throw new AuthorizationException();
         }
 
-        $this->deleteBackupService->handle($backup);
+        $this->deleteBackupService->handle($backup, $request->user());
 
         Activity::event('server:backup.delete')
             ->subject($backup)

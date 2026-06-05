@@ -52,7 +52,9 @@ export default ({ backup, className }: Props) => {
             <div css={tw`flex items-center truncate w-full md:flex-1`}>
                 <div css={tw`mr-4`}>
                     {backup.completedAt !== null ? (
-                        backup.isLocked ? (
+                        backup.isProtected ? (
+                            <FontAwesomeIcon icon={faLock} css={tw`text-blue-400`} title={'Protected backup'} />
+                        ) : backup.isLocked ? (
                             <FontAwesomeIcon icon={faLock} css={tw`text-yellow-500`} />
                         ) : (
                             <FontAwesomeIcon icon={faArchive} css={tw`text-neutral-300`} />

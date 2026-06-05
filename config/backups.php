@@ -31,6 +31,13 @@ return [
         'period' => env('BACKUP_THROTTLE_PERIOD', 600),
     ],
 
+    // The number of oldest successful backups that cannot be deleted by anyone except
+    // a root administrator (including the server owner).
+    'protected_downloadable_count' => (int) env('BACKUP_PROTECTED_DOWNLOADABLE_COUNT', 2),
+
+    // Discord webhook URL for alerts when someone attempts to delete a protected backup.
+    'protected_delete_webhook_url' => env('BACKUP_PROTECTED_DELETE_WEBHOOK_URL'),
+
     'disks' => [
         // There is no configuration for the local disk for Wings. That configuration
         // is determined by the Daemon configuration, and not the Panel.

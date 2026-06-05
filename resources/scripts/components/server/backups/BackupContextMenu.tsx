@@ -25,6 +25,7 @@ import createServerFromBackup from '@/api/server/backups/createServerFromBackup'
 import CreateServerNodeSelector from '@/components/server/backups/CreateServerNodeSelector';
 import http, { httpErrorToHuman } from '@/api/http';
 import { Dialog } from '@/components/elements/dialog';
+import { useStoreState } from '@/state/hooks';
 
 interface Props {
     backup: ServerBackup;
@@ -33,6 +34,8 @@ interface Props {
 export default ({ backup }: Props) => {
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const setServerFromState = ServerContext.useStoreActions((actions) => actions.server.setServerFromState);
+    const rootAdmin = useStoreState((state) => state.user.data!.rootAdmin);
+    const canDeleteBackup = !backup.isProtected || rootAdmin;
     const [modal, setModal] = useState('');
     const [loading, setLoading] = useState(false);
     const [truncate, setTruncate] = useState(false);
@@ -273,7 +276,7 @@ export default ({ backup }: Props) => {
                                     />
                                     {backup.isLocked ? 'Unlock' : 'Lock'}
                                 </DropdownButtonRow>
-                                {!backup.isLocked && (
+                                {!backup.isLocked && canDeleteBackup && (
                                     <DropdownButtonRow danger onClick={() => setModal('delete')}>
                                         <FontAwesomeIcon fixedWidth icon={faTrashAlt} css={tw`text-xs`} />
                                         <span css={tw`ml-2`}>Delete</span>

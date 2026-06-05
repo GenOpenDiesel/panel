@@ -10,6 +10,7 @@ export interface ServerBackup {
     uuid: string;
     isSuccessful: boolean;
     isLocked: boolean;
+    isProtected: boolean;
     name: string;
     ignoredFiles: string;
     checksum: string;
