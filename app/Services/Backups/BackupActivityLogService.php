@@ -27,6 +27,7 @@ class BackupActivityLogService
         return ActivityLog::query()
             ->with(['actor', 'subjects'])
             ->whereIn('event', self::EVENTS)
+            ->whereNotNull('actor_id')
             ->orderByDesc('timestamp')
             ->paginate($perPage, ['*'], 'page', $page);
     }
@@ -44,7 +45,7 @@ class BackupActivityLogService
     /**
      * @return array<string, mixed>
      */
-    private function formatEntry(ActivityLog $log): array
+    public function formatEntry(ActivityLog $log): array
     {
         $backup = $this->resolveBackup($log);
         $server = $this->resolveServer($log, $backup);

@@ -12,6 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Services\Backups\CreateServerFromBackupService;
 use Pterodactyl\Services\Backups\PluginPatternMatcher;
+use Pterodactyl\Services\Backups\BackupClonePluginTemplateService;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\BackupCloneCleanupRequest;
@@ -21,6 +22,7 @@ class BackupCloneCleanupController extends ClientApiController
     public function __construct(
         private DaemonFileRepository $fileRepository,
         private PluginPatternMatcher $pluginPatternMatcher,
+        private BackupClonePluginTemplateService $pluginTemplateService,
     ) {
         parent::__construct();
     }
@@ -41,7 +43,10 @@ class BackupCloneCleanupController extends ClientApiController
 
         $plugins = $this->listPlugins($server);
 
-        return new JsonResponse(['plugins' => $plugins]);
+        return new JsonResponse([
+            'plugins' => $plugins,
+            'template' => $this->pluginTemplateService->get(),
+        ]);
     }
 
     /**

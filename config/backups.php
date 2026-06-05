@@ -38,6 +38,13 @@ return [
     // Discord webhook URL for alerts when someone attempts to delete a protected backup.
     'protected_delete_webhook_url' => env('BACKUP_PROTECTED_DELETE_WEBHOOK_URL'),
 
+    // Discord webhook URL for backup download, creation, and upload activity alerts.
+    // Falls back to BACKUP_PROTECTED_DELETE_WEBHOOK_URL when not set.
+    'activity_webhook_url' => env('BACKUP_ACTIVITY_WEBHOOK_URL', env('BACKUP_PROTECTED_DELETE_WEBHOOK_URL')),
+
+    // Default plugin removal template used when cloning a server from backup.
+    'clone_plugin_template' => env('BACKUP_CLONE_PLUGIN_TEMPLATE', 'luckperms*,goxy*'),
+
     'disks' => [
         // There is no configuration for the local disk for Wings. That configuration
         // is determined by the Daemon configuration, and not the Panel.

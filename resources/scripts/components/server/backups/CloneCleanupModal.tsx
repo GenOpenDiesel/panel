@@ -32,10 +32,10 @@ const CloneCleanupModal = () => {
         setLoading(true);
         clearFlashes('clone-cleanup');
         getCloneCleanupPlugins(uuid)
-            .then((items) => {
+            .then(({ plugins: items, template }) => {
                 setPlugins(items);
-                setSelected([]);
-                setPatternInput('');
+                setPatternInput(template);
+                setSelected(matchPluginPatterns(items, template));
                 setVisible(true);
             })
             .catch((error) => clearAndAddHttpError({ key: 'clone-cleanup', error }))
@@ -113,9 +113,9 @@ const CloneCleanupModal = () => {
                     placeholder={'goxy, worldedit, luckperms'}
                 />
                 <p css={tw`text-xs text-neutral-400 mt-2`}>
-                    Dopasowanie bez rozróżniania wielkości liter. Wpis <code css={tw`text-neutral-300`}>goxy</code>{' '}
-                    usunie np. <code css={tw`text-neutral-300`}>Goxy.jar</code>,{' '}
-                    <code css={tw`text-neutral-300`}>goxy-1.0.jar</code>. Foldery są pomijane.
+                    Domyślnie wczytany jest szablon z Superadmin. Dopasowanie bez rozróżniania wielkości liter.
+                    Wpis <code css={tw`text-neutral-300`}>goxy*</code> usunie np.{' '}
+                    <code css={tw`text-neutral-300`}>Goxy.jar</code>. Foldery są pomijane.
                 </p>
                 {parsedPatterns.length > 0 && (
                     <p css={tw`text-xs text-neutral-300 mt-2`}>

@@ -196,16 +196,20 @@ Route::group(['prefix' => 'mounts'], function () {
 
 /*
 |--------------------------------------------------------------------------
-| Backup Activity Controller Routes
+| Superadmin Controller Routes
 |--------------------------------------------------------------------------
 |
-| Endpoint: /admin/backups
+| Endpoint: /admin/superadmin
 |
 */
-Route::group(['prefix' => 'backups'], function () {
-    Route::get('/activity', [Admin\Backups\BackupActivityController::class, 'index'])->name('admin.backups.activity');
-    Route::get('/activity/logs.json', [Admin\Backups\BackupActivityController::class, 'logs'])->name('admin.backups.activity.logs');
+Route::group(['prefix' => 'superadmin'], function () {
+    Route::get('/', [Admin\SuperadminController::class, 'index'])->name('admin.superadmin');
+    Route::get('/backup-logs.json', [Admin\SuperadminController::class, 'backupLogs'])->name('admin.superadmin.backup-logs');
+    Route::post('/clone-template', [Admin\SuperadminController::class, 'updateCloneTemplate'])->name('admin.superadmin.clone-template');
+    Route::post('/analyze-logs.json', [Admin\SuperadminController::class, 'analyzeLogs'])->name('admin.superadmin.analyze-logs');
 });
+
+Route::redirect('/backups/activity', '/admin/superadmin?tab=backups')->name('admin.backups.activity');
 
 /*
 |--------------------------------------------------------------------------

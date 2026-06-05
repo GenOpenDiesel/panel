@@ -5,10 +5,20 @@ export interface ClonePlugin {
     type: 'file' | 'directory';
 }
 
-export const getCloneCleanupPlugins = (uuid: string): Promise<ClonePlugin[]> => {
+export interface CloneCleanupPluginsResponse {
+    plugins: ClonePlugin[];
+    template: string;
+}
+
+export const getCloneCleanupPlugins = (uuid: string): Promise<CloneCleanupPluginsResponse> => {
     return new Promise((resolve, reject) => {
         http.get(`/api/client/servers/${uuid}/clone-cleanup/plugins`)
-            .then(({ data }) => resolve(data.plugins || []))
+            .then(({ data }) =>
+                resolve({
+                    plugins: data.plugins || [],
+                    template: data.template || '',
+                })
+            )
             .catch(reject);
     });
 };

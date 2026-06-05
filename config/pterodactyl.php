@@ -133,6 +133,11 @@ return [
         'max_edit_size' => env('PTERODACTYL_FILES_MAX_EDIT_SIZE', 1024 * 1024 * 4),
     ],
 
+    'log_analysis' => [
+        'log_path' => env('LOG_ANALYSIS_PATH', '/logs/latest.log'),
+        'tail_bytes' => (int) env('LOG_ANALYSIS_TAIL_BYTES', 1024 * 1024 * 4),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Dynamic Environment Variables

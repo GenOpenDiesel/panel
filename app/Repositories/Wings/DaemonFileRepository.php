@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\TransferException;
 use Pterodactyl\Exceptions\Http\Server\FileSizeTooLargeException;
+use Pterodactyl\Exceptions\Http\Server\LogFileNotFoundException;
 use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
 
 /**
@@ -47,6 +48,52 @@ class DaemonFileRepository extends DaemonRepository
         }
 
         return $response->getBody()->__toString();
+    }
+
+    /**
+     * Reads up to the last $maxBytes of a file. For files larger than the limit,
+     * the response body is streamed and only the final chunk is retained in memory.
+     *
+     * @throws DaemonConnectionException
+     */
+    public function getTailContent(string $path, int $maxBytes = 4194304): string
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+
+        try {
+            $response = $this->getHttpClient()->get(
+                sprintf('/api/servers/%s/files/contents', $this->server->uuid),
+                [
+                    'query' => ['file' => $path],
+                    'stream' => true,
+                    'timeout' => max(60, (int) config('pterodactyl.guzzle.timeout', 15)),
+                    'headers' => [
+                        'Accept' => 'text/plain',
+                    ],
+                ]
+            );
+        } catch (ClientException $exception) {
+            if ($exception->getResponse()?->getStatusCode() === 404) {
+                throw new LogFileNotFoundException('Log file not found.');
+            }
+
+            throw new DaemonConnectionException($exception);
+        } catch (TransferException $exception) {
+            throw new DaemonConnectionException($exception);
+        }
+
+        $length = (int) Arr::get($response->getHeader('Content-Length'), 0, 0);
+        $stream = $response->getBody();
+
+        if ($length <= 0) {
+            return '';
+        }
+
+        if ($length <= $maxBytes) {
+            return $stream->getContents();
+        }
+
+        return $this->readTailFromStream($stream, $length, $maxBytes);
     }
 
     /**
@@ -275,6 +322,31 @@ class DaemonFileRepository extends DaemonRepository
      *
      * @throws DaemonConnectionException
      */
+    private function readTailFromStream($stream, int $fileSize, int $maxBytes): string
+    {
+        $skip = max(0, $fileSize - $maxBytes);
+        $remaining = $skip;
+
+        while ($remaining > 0 && !$stream->eof()) {
+            $chunkSize = (int) min($remaining, 1024 * 512);
+            $read = $stream->read($chunkSize);
+
+            if ($read === '') {
+                break;
+            }
+
+            $remaining -= strlen($read);
+        }
+
+        $content = $stream->getContents();
+
+        if (strlen($content) > $maxBytes) {
+            return substr($content, -$maxBytes);
+        }
+
+        return $content;
+    }
+
     public function pull(string $url, ?string $directory, array $params = []): ResponseInterface
     {
         Assert::isInstanceOf($this->server, Server::class);

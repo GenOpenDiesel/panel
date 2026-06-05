@@ -1,65 +1,47 @@
-@extends('layouts.admin')
-
-@section('title')
-    Log backupów
-@endsection
-
-@section('content-header')
-    <h1>Log backupów<small>Centralny rejestr pobranych i wgranych backupów.</small></h1>
-    <ol class="breadcrumb">
-        <li><a href="{{ route('admin.index') }}">Admin</a></li>
-        <li class="active">Log backupów</li>
-    </ol>
-@endsection
-
-@section('content')
-<div class="row">
-    <div class="col-xs-12">
-        <div class="box box-primary">
-            <div class="box-header with-border">
-                <h3 class="box-title">Aktywność backupów</h3>
-                <div class="box-tools">
-                    <span class="label label-default" id="backup-log-total">Ładowanie...</span>
-                </div>
-            </div>
-            <div class="box-body table-responsive no-padding">
-                <table class="table table-hover" id="backup-activity-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Akcja</th>
-                            <th>Backup</th>
-                            <th>Serwer</th>
-                            <th>Użytkownik</th>
-                            <th>IP</th>
-                        </tr>
-                    </thead>
-                    <tbody id="backup-activity-body">
-                        <tr>
-                            <td colspan="6" class="text-center text-muted">
-                                <i class="fa fa-refresh fa-spin"></i> Pobieranie logów...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="box-footer clearfix">
-                <div class="pull-left">
-                    <small class="text-muted">Wyświetlane są pobrania, utworzenia i zakończone wgrania backupów.</small>
-                </div>
-                <ul class="pagination pagination-sm no-margin pull-right" id="backup-activity-pagination"></ul>
-            </div>
+<div class="box box-primary" style="border-top: 0; margin-bottom: 0;">
+    <div class="box-header with-border">
+        <h3 class="box-title">Centralny log backupów</h3>
+        <div class="box-tools">
+            <span class="label label-default" id="backup-log-total">Ładowanie...</span>
         </div>
     </div>
+    <div class="box-body table-responsive no-padding">
+        <table class="table table-hover" id="backup-activity-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Akcja</th>
+                    <th>Backup</th>
+                    <th>Serwer</th>
+                    <th>Użytkownik</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody id="backup-activity-body">
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        <i class="fa fa-refresh fa-spin"></i> Pobieranie logów...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="box-footer clearfix">
+        <div class="pull-left">
+            <small class="text-muted">
+                Wyświetlane są wyłącznie akcje wykonane przez użytkowników (bez wpisów systemowych).
+                Alerty Discord wysyłane są automatycznie po każdej akcji.
+            </small>
+        </div>
+        <ul class="pagination pagination-sm no-margin pull-right" id="backup-activity-pagination"></ul>
+    </div>
 </div>
-@endsection
 
-@section('footer-scripts')
-    @parent
+@push('superadmin-scripts')
     <script>
     (function () {
         var currentPage = 1;
-        var logsUrl = '{{ route('admin.backups.activity.logs') }}';
+        var logsUrl = '{{ route('admin.superadmin.backup-logs') }}';
 
         function escapeHtml(value) {
             return String(value || '')
@@ -179,4 +161,4 @@
         loadLogs(1);
     })();
     </script>
-@endsection
+@endpush
