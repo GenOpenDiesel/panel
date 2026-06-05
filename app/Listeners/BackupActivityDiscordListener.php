@@ -24,7 +24,7 @@ class BackupActivityDiscordListener implements ShouldDispatchAfterCommit
             ->with(['actor', 'subjects'])
             ->find($event->model->id);
 
-        if (!$activityLog) {
+        if (!$activityLog || is_null($activityLog->actor_id)) {
             return;
         }
 

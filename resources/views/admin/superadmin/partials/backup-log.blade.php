@@ -30,7 +30,7 @@
         <div class="pull-left">
             <small class="text-muted">
                 Wyświetlane są wyłącznie akcje wykonane przez użytkowników (bez wpisów systemowych).
-                Alerty Discord wysyłane są automatycznie po każdej akcji.
+                Alerty Discord wysyłane są automatycznie po każdej akcji użytkownika.
             </small>
         </div>
         <ul class="pagination pagination-sm no-margin pull-right" id="backup-activity-pagination"></ul>
