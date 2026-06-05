@@ -33,6 +33,25 @@ class BackupRepository extends EloquentRepository
     }
 
     /**
+     * Returns a query for backups displayed in the panel, newest first.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\Pterodactyl\Models\Backup, \Pterodactyl\Models\Server>
+     */
+    public function getBackupsForDisplay(Server $server, bool $includeFailed = false): HasMany
+    {
+        $query = $server->backups()->orderByDesc('created_at');
+
+        if (!$includeFailed) {
+            $query->where(function ($query) {
+                $query->whereNull('completed_at')
+                    ->orWhere('is_successful', true);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
      * Returns a query filtering only non-failed backups for a specific server.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany<\Pterodactyl\Models\Backup, \Pterodactyl\Models\Server>

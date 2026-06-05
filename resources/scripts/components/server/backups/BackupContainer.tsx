@@ -10,9 +10,10 @@ import getServerBackups, { Context as ServerBackupContext } from '@/api/swr/getS
 import { ServerContext } from '@/state/server';
 import ServerContentBlock from '@/components/elements/ServerContentBlock';
 import Pagination from '@/components/elements/Pagination';
+import Switch from '@/components/elements/Switch';
 
 const BackupContainer = () => {
-    const { page, setPage } = useContext(ServerBackupContext);
+    const { page, setPage, includeFailed, setIncludeFailed } = useContext(ServerBackupContext);
     const { clearFlashes, clearAndAddHttpError } = useFlash();
     const { data: backups, error, isValidating } = getServerBackups();
 
@@ -35,6 +36,18 @@ const BackupContainer = () => {
     return (
         <ServerContentBlock title={'Backups'}>
             <FlashMessageRender byKey={'backups'} css={tw`mb-4`} />
+            <div css={tw`flex justify-end mb-4`}>
+                <Switch
+                    name={'show_failed_backups'}
+                    label={'Show failed backups'}
+                    description={'Failed backups are hidden by default.'}
+                    defaultChecked={includeFailed}
+                    onChange={(e) => {
+                        setIncludeFailed(e.target.checked);
+                        setPage(1);
+                    }}
+                />
+            </div>
             <Pagination data={backups} onPageSelect={setPage}>
                 {({ items }) =>
                     !items.length ? (
@@ -77,8 +90,10 @@ const BackupContainer = () => {
 
 export default () => {
     const [page, setPage] = useState<number>(1);
+    const [includeFailed, setIncludeFailed] = useState<boolean>(false);
+
     return (
-        <ServerBackupContext.Provider value={{ page, setPage }}>
+        <ServerBackupContext.Provider value={{ page, setPage, includeFailed, setIncludeFailed }}>
             <BackupContainer />
         </ServerBackupContext.Provider>
     );

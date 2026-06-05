@@ -53,8 +53,11 @@ class BackupController extends ClientApiController
         }
 
         $limit = min($request->query('per_page') ?? 20, 50);
+        $includeFailed = $request->boolean('include_failed');
 
-        return $this->fractal->collection($server->backups()->paginate($limit))
+        return $this->fractal->collection(
+            $this->repository->getBackupsForDisplay($server, $includeFailed)->paginate($limit)
+        )
             ->transformWith($this->getTransformer(BackupTransformer::class))
             ->addMeta([
                 'backup_count' => $this->repository->getNonFailedBackups($server)->count(),

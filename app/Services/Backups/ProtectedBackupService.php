@@ -59,6 +59,12 @@ class ProtectedBackupService
             return true;
         }
 
-        return $user !== null && $user->root_admin;
+        // Automatic purges (no user context) may delete protected backups; protection
+        // then shifts to the next oldest downloadable backups dynamically.
+        if ($user === null) {
+            return true;
+        }
+
+        return $user->root_admin;
     }
 }
