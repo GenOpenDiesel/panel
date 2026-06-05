@@ -43,9 +43,14 @@ class BackupCloneCleanupController extends ClientApiController
 
         $plugins = $this->listPlugins($server);
 
+        $state = CreateServerFromBackupService::getCloneState($server->id);
+        $template = is_array($state) && !empty($state['plugin_template'])
+            ? $state['plugin_template']
+            : $this->pluginTemplateService->get();
+
         return new JsonResponse([
             'plugins' => $plugins,
-            'template' => $this->pluginTemplateService->get(),
+            'template' => $template,
         ]);
     }
 

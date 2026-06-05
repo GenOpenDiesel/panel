@@ -21,6 +21,7 @@ use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\StoreBackupRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\RestoreBackupRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Backups\CreateServerFromBackupRequest;
 use Pterodactyl\Services\Backups\CreateServerFromBackupService;
+use Pterodactyl\Services\Backups\BackupClonePluginTemplateService;
 use Pterodactyl\Services\Nodes\NodeUsageService;
 
 class BackupController extends ClientApiController
@@ -36,6 +37,7 @@ class BackupController extends ClientApiController
         private BackupRepository $repository,
         private CreateServerFromBackupService $createServerFromBackupService,
         private NodeUsageService $nodeUsageService,
+        private BackupClonePluginTemplateService $pluginTemplateService,
     ) {
         parent::__construct();
     }
@@ -248,9 +250,10 @@ class BackupController extends ClientApiController
             throw new AuthorizationException();
         }
 
-        return new JsonResponse(
-            $this->nodeUsageService->getForDeployment($server->memory, $server->disk)
-        );
+        return new JsonResponse(array_merge(
+            $this->nodeUsageService->getForDeployment($server->memory, $server->disk),
+            ['plugin_template' => $this->pluginTemplateService->get()]
+        ));
     }
 
     /**
@@ -271,6 +274,7 @@ class BackupController extends ClientApiController
             $request->user(),
             $request->input('name'),
             $request->integer('node_id') ?: null,
+            $request->input('plugin_template'),
         );
 
         Activity::event('server:backup.create-server')

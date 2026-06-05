@@ -37,6 +37,7 @@ export interface CreateServerNodesResponse {
     cached_seconds: number;
     updated_at: string;
     nodes: CreateServerNodeUsage[];
+    plugin_template: string;
 }
 
 export default (uuid: string): Promise<CreateServerNodesResponse> => {

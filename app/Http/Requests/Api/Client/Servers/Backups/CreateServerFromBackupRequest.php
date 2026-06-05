@@ -17,6 +17,7 @@ class CreateServerFromBackupRequest extends ClientApiRequest
         return [
             'name' => 'sometimes|nullable|string|max:191',
             'node_id' => 'sometimes|nullable|integer|exists:nodes,id',
+            'plugin_template' => 'sometimes|nullable|string|max:2000',
         ];
     }
 }

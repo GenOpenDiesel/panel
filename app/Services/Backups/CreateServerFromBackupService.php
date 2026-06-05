@@ -21,6 +21,7 @@ class CreateServerFromBackupService
         private ServerCreationService $serverCreationService,
         private DownloadLinkService $downloadLinkService,
         private DaemonBackupRepository $daemonRepository,
+        private BackupClonePluginTemplateService $pluginTemplateService,
     ) {
     }
 
@@ -30,7 +31,14 @@ class CreateServerFromBackupService
      *
      * @throws \Throwable
      */
-    public function handle(Server $source, Backup $backup, User $user, ?string $name = null, ?int $nodeId = null): Server
+    public function handle(
+        Server $source,
+        Backup $backup,
+        User $user,
+        ?string $name = null,
+        ?int $nodeId = null,
+        ?string $pluginTemplate = null,
+    ): Server
     {
         if ($backup->server_id !== $source->id) {
             throw new BadRequestHttpException('The requested backup does not belong to this server.');
@@ -94,10 +102,15 @@ class CreateServerFromBackupService
         $newServer->update(['status' => Server::STATUS_RESTORING_BACKUP]);
         $this->daemonRepository->setServer($newServer)->restore($tempBackup, $downloadUrl, true);
 
+        $template = $pluginTemplate !== null && trim($pluginTemplate) !== ''
+            ? $this->pluginTemplateService->normalize($pluginTemplate)
+            : $this->pluginTemplateService->get();
+
         Cache::put(self::CACHE_PREFIX . $newServer->id, [
             'temp_backup_id' => $tempBackup->id,
             'status' => 'restoring',
             'source_backup_uuid' => $backup->uuid,
+            'plugin_template' => $template,
         ], now()->addHours(24));
 
         return $newServer;

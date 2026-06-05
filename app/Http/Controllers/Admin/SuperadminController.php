@@ -5,22 +5,16 @@ namespace Pterodactyl\Http\Controllers\Admin;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
-use Prologue\Alerts\AlertsMessageBag;
 use Pterodactyl\Http\Controllers\Controller;
 use Pterodactyl\Services\Backups\BackupActivityLogService;
-use Pterodactyl\Services\Backups\BackupClonePluginTemplateService;
 use Pterodactyl\Services\Logs\LatestLogAnalysisService;
-use Pterodactyl\Http\Requests\Admin\Superadmin\UpdateClonePluginTemplateRequest;
 use Pterodactyl\Http\Requests\Admin\Superadmin\AnalyzeLatestLogsRequest;
 
 class SuperadminController extends Controller
 {
     public function __construct(
         private BackupActivityLogService $backupActivityLogService,
-        private BackupClonePluginTemplateService $pluginTemplateService,
         private LatestLogAnalysisService $latestLogAnalysisService,
-        private AlertsMessageBag $alert,
     ) {
     }
 
@@ -28,30 +22,13 @@ class SuperadminController extends Controller
     {
         $tab = $request->query('tab', 'backups');
 
-        if (!in_array($tab, ['backups', 'clone', 'logs'], true)) {
+        if (!in_array($tab, ['backups', 'logs'], true)) {
             $tab = 'backups';
         }
 
         return view('admin.superadmin.index', [
             'activeTab' => $tab,
-            'pluginTemplate' => $this->pluginTemplateService->get(),
         ]);
-    }
-
-    public function updateCloneTemplate(UpdateClonePluginTemplateRequest $request): RedirectResponse
-    {
-        try {
-            $this->pluginTemplateService->validate($request->input('plugin_template'));
-            $this->pluginTemplateService->set($request->input('plugin_template'));
-        } catch (\InvalidArgumentException $exception) {
-            $this->alert->danger($exception->getMessage())->flash();
-
-            return redirect()->route('admin.superadmin', ['tab' => 'clone'])->withInput();
-        }
-
-        $this->alert->success('Szablon usuwania pluginów został zapisany.')->flash();
-
-        return redirect()->route('admin.superadmin', ['tab' => 'clone']);
     }
 
     public function analyzeLogs(AnalyzeLatestLogsRequest $request): JsonResponse

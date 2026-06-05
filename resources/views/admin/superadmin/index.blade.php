@@ -20,19 +20,12 @@
                 <li class="{{ $activeTab === 'backups' ? 'active' : '' }}">
                     <a href="{{ route('admin.superadmin', ['tab' => 'backups']) }}">Log backupów</a>
                 </li>
-                <li class="{{ $activeTab === 'clone' ? 'active' : '' }}">
-                    <a href="{{ route('admin.superadmin', ['tab' => 'clone']) }}">Klonowanie backupów</a>
-                </li>
                 <li class="{{ $activeTab === 'logs' ? 'active' : '' }}">
                     <a href="{{ route('admin.superadmin', ['tab' => 'logs']) }}">Analiza logów</a>
                 </li>
             </ul>
             <div class="tab-content">
-                @if ($activeTab === 'clone')
-                    <div class="tab-pane active" id="tab-clone">
-                        @include('admin.superadmin.partials.clone-settings')
-                    </div>
-                @elseif ($activeTab === 'logs')
+                @if ($activeTab === 'logs')
                     <div class="tab-pane active" id="tab-logs">
                         @include('admin.superadmin.partials.log-analysis')
                     </div>

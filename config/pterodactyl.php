@@ -136,6 +136,18 @@ return [
     'log_analysis' => [
         'log_path' => env('LOG_ANALYSIS_PATH', '/logs/latest.log'),
         'tail_bytes' => (int) env('LOG_ANALYSIS_TAIL_BYTES', 1024 * 1024 * 4),
+        'popular_errors' => [
+            'OutOfMemoryError',
+            'Could not pass event',
+            'Exception',
+            'Error occurred while enabling plugin',
+            'Timed out',
+            'Connection lost',
+            'Failed to bind to port',
+            'Watchdog',
+            'A single server tick took',
+            'Caused by:',
+        ],
     ],
 
     /*

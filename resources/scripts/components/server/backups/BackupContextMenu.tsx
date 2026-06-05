@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     faBoxOpen,
     faCloudDownloadAlt,
@@ -22,6 +22,7 @@ import { ServerContext } from '@/state/server';
 import Input from '@/components/elements/Input';
 import { restoreServerBackup } from '@/api/server/backups';
 import createServerFromBackup from '@/api/server/backups/createServerFromBackup';
+import getCreateServerNodes from '@/api/server/backups/getCreateServerNodes';
 import CreateServerNodeSelector from '@/components/server/backups/CreateServerNodeSelector';
 import http, { httpErrorToHuman } from '@/api/http';
 import { Dialog } from '@/components/elements/dialog';
@@ -41,7 +42,18 @@ export default ({ backup }: Props) => {
     const [truncate, setTruncate] = useState(false);
     const [serverName, setServerName] = useState('');
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+    const [pluginTemplate, setPluginTemplate] = useState('');
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
+
+    useEffect(() => {
+        if (modal !== 'create-server') {
+            return;
+        }
+
+        getCreateServerNodes(uuid)
+            .then((data) => setPluginTemplate(data.plugin_template || ''))
+            .catch((error) => console.error(error));
+    }, [modal, uuid]);
     const { mutate } = getServerBackups();
 
     const doDownload = () => {
@@ -105,14 +117,14 @@ export default ({ backup }: Props) => {
             addFlash({
                 key: 'backups',
                 type: 'error',
-                message: 'Wybierz węzeł, na którym ma powstać serwer.',
+                message: 'Select a node where the new server should be created.',
             });
             return;
         }
 
         setLoading(true);
         clearFlashes('backups');
-        createServerFromBackup(uuid, backup.uuid, serverName || undefined, selectedNodeId)
+        createServerFromBackup(uuid, backup.uuid, serverName || undefined, selectedNodeId, pluginTemplate)
             .then((server) => {
                 addFlash({
                     key: 'backups',
@@ -123,6 +135,7 @@ export default ({ backup }: Props) => {
                 setModal('');
                 setServerName('');
                 setSelectedNodeId(null);
+                setPluginTemplate('');
             })
             .catch((error) => {
                 console.error(error);
@@ -198,6 +211,7 @@ export default ({ backup }: Props) => {
                     setModal('');
                     setServerName('');
                     setSelectedNodeId(null);
+                    setPluginTemplate('');
                 }}
                 confirm={'Create Server'}
                 title={`Create Server from "${backup.name}"`}
@@ -205,9 +219,8 @@ export default ({ backup }: Props) => {
             >
                 <p>
                     A new server will be provisioned using the same configuration as this server, with the CPU limit
-                    set to 300%. The selected backup will be restored to the new instance. Once the restoration
-                    completes, you will be prompted to remove any plugins from the <code>/plugins</code> directory
-                    that are not required.
+                    set to 300%. The selected backup will be restored to the new instance. After restoration completes,
+                    matching plugins from the template below will be selected for removal.
                 </p>
                 <div css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
                     <CreateServerNodeSelector
@@ -226,6 +239,21 @@ export default ({ backup }: Props) => {
                         onChange={(e) => setServerName(e.target.value)}
                         placeholder={`Clone: ${backup.name}`}
                     />
+                </p>
+                <p css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
+                    <label htmlFor={'clone_plugin_template'} css={tw`text-base block mb-2`}>
+                        Plugin Removal Template
+                    </label>
+                    <Input
+                        id={'clone_plugin_template'}
+                        value={pluginTemplate}
+                        onChange={(e) => setPluginTemplate(e.target.value)}
+                        placeholder={'luckperms*,goxy*,worldedit*'}
+                    />
+                    <span css={tw`text-xs text-neutral-400 mt-2 block`}>
+                        Comma-separated plugin name patterns. Matching is case-insensitive and files only —
+                        e.g. <code css={tw`text-neutral-300`}>goxy*</code> matches <code css={tw`text-neutral-300`}>Goxy.jar</code>.
+                    </span>
                 </p>
             </Dialog.Confirm>
             <Dialog.Confirm

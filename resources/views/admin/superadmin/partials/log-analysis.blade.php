@@ -19,6 +19,21 @@
                 i przeszuka ostatnie 4&nbsp;MiB pliku <code>logs/latest.log</code> na każdym z nich.
             </p>
         </div>
+        <div class="form-group">
+            <label class="control-label">Popularne błędy</label>
+            <div id="log-analysis-presets" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                @foreach (config('pterodactyl.log_analysis.popular_errors', []) as $error)
+                    <button
+                        type="button"
+                        class="btn btn-default btn-sm log-analysis-preset"
+                        data-phrase="{{ $error }}"
+                    >{{ $error }}</button>
+                @endforeach
+            </div>
+            <p class="text-muted" style="margin-top: 10px; margin-bottom: 0;">
+                Kliknij błąd, aby od razu przeskanować wszystkie serwery.
+            </p>
+        </div>
         <button type="button" class="btn btn-primary" id="log-analysis-submit">
             <i class="fa fa-search"></i> Analizuj
         </button>
@@ -93,8 +108,14 @@
             }).join('');
         }
 
-        submitButton.addEventListener('click', function () {
-            var phrases = phrasesInput.value.trim();
+        function setPresetActive(phrase) {
+            document.querySelectorAll('.log-analysis-preset').forEach(function (button) {
+                button.classList.toggle('btn-primary', button.dataset.phrase === phrase);
+                button.classList.toggle('btn-default', button.dataset.phrase !== phrase);
+            });
+        }
+
+        function runAnalysis(phrases) {
             if (!phrases) {
                 summary.textContent = 'Podaj frazy do wyszukania';
                 summary.className = 'label label-warning';
@@ -102,6 +123,9 @@
             }
 
             submitButton.disabled = true;
+            document.querySelectorAll('.log-analysis-preset').forEach(function (button) {
+                button.disabled = true;
+            });
             summary.textContent = 'Skanowanie serwerów...';
             summary.className = 'label label-warning';
             resultsWrap.style.display = 'block';
@@ -142,7 +166,24 @@
                 })
                 .then(function () {
                     submitButton.disabled = false;
+                    document.querySelectorAll('.log-analysis-preset').forEach(function (button) {
+                        button.disabled = false;
+                    });
                 });
+        }
+
+        submitButton.addEventListener('click', function () {
+            setPresetActive('');
+            runAnalysis(phrasesInput.value.trim());
+        });
+
+        document.querySelectorAll('.log-analysis-preset').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var phrase = button.dataset.phrase || '';
+                phrasesInput.value = phrase;
+                setPresetActive(phrase);
+                runAnalysis(phrase);
+            });
         });
     })();
     </script>

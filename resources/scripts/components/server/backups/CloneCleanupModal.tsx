@@ -96,30 +96,28 @@ const CloneCleanupModal = () => {
     return (
         <Modal visible={visible} onDismissed={() => setVisible(false)} closeOnBackground={false} showSpinnerOverlay={loading}>
             <FlashMessageRender key={'clone-cleanup'} css={tw`mb-4`} />
-            <h2 css={tw`text-2xl mb-4 text-neutral-100`}>Usuń pluginy</h2>
+            <h2 css={tw`text-2xl mb-4 text-neutral-100`}>Remove Plugins</h2>
             <p css={tw`text-neutral-300 mb-4`}>
-                Backup został przywrócony na ten serwer. Zaznacz pluginy w katalogu{' '}
-                <code css={tw`text-neutral-200`}>/plugins</code>, które mają zostać usunięte, albo wpisz ich nazwy
-                po przecinku.
+                The backup has been restored to this server. Review the plugin removal template below or manually
+                select files in the <code css={tw`text-neutral-200`}>/plugins</code> directory.
             </p>
             <div css={tw`mb-4`}>
                 <label htmlFor={'clone_plugin_patterns'} css={tw`text-sm text-neutral-300 block mb-2`}>
-                    Nazwy pluginów (po przecinku)
+                    Plugin Removal Template
                 </label>
                 <Input
                     id={'clone_plugin_patterns'}
                     value={patternInput}
                     onChange={(e) => onPatternInputChange(e.target.value)}
-                    placeholder={'goxy, worldedit, luckperms'}
+                    placeholder={'luckperms*,goxy*,worldedit*'}
                 />
                 <p css={tw`text-xs text-neutral-400 mt-2`}>
-                    Domyślnie wczytany jest szablon z Superadmin. Dopasowanie bez rozróżniania wielkości liter.
-                    Wpis <code css={tw`text-neutral-300`}>goxy*</code> usunie np.{' '}
-                    <code css={tw`text-neutral-300`}>Goxy.jar</code>. Foldery są pomijane.
+                    Case-insensitive matching. Pattern <code css={tw`text-neutral-300`}>goxy*</code> matches{' '}
+                    <code css={tw`text-neutral-300`}>Goxy.jar</code>. Directories are skipped.
                 </p>
                 {parsedPatterns.length > 0 && (
                     <p css={tw`text-xs text-neutral-300 mt-2`}>
-                        Dopasowano {patternMatches.length} plik{patternMatches.length === 1 ? '' : 'ów'}.
+                        Matched {patternMatches.length} file{patternMatches.length === 1 ? '' : 's'}.
                     </p>
                 )}
             </div>
@@ -146,11 +144,11 @@ const CloneCleanupModal = () => {
                     ))}
                 </div>
             ) : (
-                <p css={tw`text-neutral-400 mb-6`}>Nie znaleziono pluginów w katalogu /plugins.</p>
+                <p css={tw`text-neutral-400 mb-6`}>No plugins were found in the /plugins directory.</p>
             )}
             <div css={tw`flex justify-end gap-3`}>
-                <Button onClick={onSkip}>Pomiń</Button>
-                <Button onClick={onConfirm}>Usuń zaznaczone</Button>
+                <Button onClick={onSkip}>Skip</Button>
+                <Button onClick={onConfirm}>Remove Selected</Button>
             </div>
         </Modal>
     );

@@ -205,7 +205,6 @@ Route::group(['prefix' => 'mounts'], function () {
 Route::group(['prefix' => 'superadmin'], function () {
     Route::get('/', [Admin\SuperadminController::class, 'index'])->name('admin.superadmin');
     Route::get('/backup-logs.json', [Admin\SuperadminController::class, 'backupLogs'])->name('admin.superadmin.backup-logs');
-    Route::post('/clone-template', [Admin\SuperadminController::class, 'updateCloneTemplate'])->name('admin.superadmin.clone-template');
     Route::post('/analyze-logs.json', [Admin\SuperadminController::class, 'analyzeLogs'])->name('admin.superadmin.analyze-logs');
 });
 
