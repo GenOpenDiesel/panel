@@ -68,7 +68,7 @@ class CreateServerFromBackupService
         );
 
         $newServer = $this->serverCreationService->handle([
-            'name' => $name ?: ('Clone: ' . $source->name),
+            'name' => $name ?: $this->generateCloneServerName($source),
             'description' => $source->description,
             'owner_id' => $source->owner_id,
             'node_id' => $allocation->node_id,
@@ -232,6 +232,25 @@ class CreateServerFromBackupService
     private function cloneMemory(): int
     {
         return (int) config('backups.clone_memory', 3072);
+    }
+
+    private function generateCloneServerName(Server $source): string
+    {
+        return sprintf('clone %s %s', $this->extractCloneMode($source->name), now()->format('d.m.Y'));
+    }
+
+    private function extractCloneMode(string $sourceName): string
+    {
+        $name = trim(preg_replace('/^clone:\s*/i', '', trim($sourceName)) ?? '');
+        $name = trim(preg_replace('/\s+(prod(ukcja|iukcja)?|production)\s*$/iu', '', $name) ?? '');
+
+        if ($name === '') {
+            return 'server';
+        }
+
+        $parts = preg_split('/\s+/', $name) ?: [];
+
+        return strtolower(count($parts) > 1 ? end($parts) : $parts[0]);
     }
 
     private function nodeAllocatedMemory(Node $node): int

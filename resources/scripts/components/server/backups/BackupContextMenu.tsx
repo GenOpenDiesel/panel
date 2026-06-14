@@ -27,6 +27,7 @@ import CreateServerNodeSelector from '@/components/server/backups/CreateServerNo
 import http, { httpErrorToHuman } from '@/api/http';
 import { Dialog } from '@/components/elements/dialog';
 import { useStoreState } from '@/state/hooks';
+import { generateCloneServerName } from '@/lib/generateCloneServerName';
 
 interface Props {
     backup: ServerBackup;
@@ -34,6 +35,7 @@ interface Props {
 
 export default ({ backup }: Props) => {
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
+    const sourceServerName = ServerContext.useStoreState((state) => state.server.data!.name);
     const setServerFromState = ServerContext.useStoreActions((actions) => actions.server.setServerFromState);
     const rootAdmin = useStoreState((state) => state.user.data!.rootAdmin);
     const canDeleteBackup = !backup.isProtected || rootAdmin;
@@ -238,7 +240,7 @@ export default ({ backup }: Props) => {
                         id={'clone_server_name'}
                         value={serverName}
                         onChange={(e) => setServerName(e.target.value)}
-                        placeholder={`Clone: ${backup.name}`}
+                        placeholder={generateCloneServerName(sourceServerName)}
                     />
                 </p>
                 <p css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
