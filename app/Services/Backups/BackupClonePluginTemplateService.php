@@ -18,7 +18,7 @@ class BackupClonePluginTemplateService
     {
         return (string) $this->settings->get(
             self::SETTING_KEY,
-            config('backups.clone_plugin_template', 'luckperms*,litebans*')
+            config('backups.clone_plugin_template', 'luckperms*,litebans*,coreprotect*')
         );
     }
 

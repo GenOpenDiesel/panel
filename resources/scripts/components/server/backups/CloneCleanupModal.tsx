@@ -109,7 +109,7 @@ const CloneCleanupModal = () => {
                     id={'clone_plugin_patterns'}
                     value={patternInput}
                     onChange={(e) => onPatternInputChange(e.target.value)}
-                    placeholder={'luckperms*,litebans*'}
+                    placeholder={'luckperms*,litebans*,coreprotect*'}
                 />
                 <p css={tw`text-xs text-neutral-400 mt-2`}>
                     Case-insensitive matching. Pattern <code css={tw`text-neutral-300`}>goxy*</code> matches{' '}
