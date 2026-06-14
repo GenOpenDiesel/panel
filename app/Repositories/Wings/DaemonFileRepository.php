@@ -120,22 +120,25 @@ class DaemonFileRepository extends DaemonRepository
     }
 
     /**
-     * Writes a stream of data to a file on the server.
-     *
-     * @param  resource  $resource
+     * Writes a local file to the server.
      *
      * @throws DaemonConnectionException
      */
-    public function writeStream(string $path, $resource): ResponseInterface
+    public function writeFile(string $path, string $filePath): ResponseInterface
     {
         Assert::isInstanceOf($this->server, Server::class);
+
+        $stream = fopen($filePath, 'rb');
+        if ($stream === false) {
+            throw new DaemonConnectionException(new TransferException('Unable to open the file for upload.'));
+        }
 
         try {
             return $this->getHttpClient()->post(
                 sprintf('/api/servers/%s/files/write', $this->server->uuid),
                 [
                     'query' => ['file' => $path],
-                    'body' => $resource,
+                    'body' => $stream,
                     'timeout' => 60 * 15,
                     'headers' => [
                         'Content-Type' => 'application/octet-stream',
@@ -144,6 +147,10 @@ class DaemonFileRepository extends DaemonRepository
             );
         } catch (TransferException $exception) {
             throw new DaemonConnectionException($exception);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
     }
 

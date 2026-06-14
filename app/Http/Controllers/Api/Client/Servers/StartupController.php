@@ -137,19 +137,10 @@ class StartupController extends ClientApiController
         $tempPath = $this->paperMcService->downloadToTemporaryFile($build['download_url']);
 
         try {
-            $stream = fopen($tempPath, 'rb');
-            if ($stream === false) {
-                throw new BadRequestHttpException('Unable to read the downloaded PaperMC build.');
-            }
-
-            try {
-                $this->fileRepository->setServer($server)->writeStream(
-                    '/' . ltrim($targetFile, '/'),
-                    $stream
-                );
-            } finally {
-                fclose($stream);
-            }
+            $this->fileRepository->setServer($server)->writeFile(
+                '/' . ltrim($targetFile, '/'),
+                $tempPath
+            );
         } finally {
             @unlink($tempPath);
         }
