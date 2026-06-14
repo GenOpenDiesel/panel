@@ -43,7 +43,7 @@ return [
     'activity_webhook_url' => env('BACKUP_ACTIVITY_WEBHOOK_URL', env('BACKUP_PROTECTED_DELETE_WEBHOOK_URL')),
 
     // Default plugin removal template used when cloning a server from backup.
-    'clone_plugin_template' => env('BACKUP_CLONE_PLUGIN_TEMPLATE', 'luckperms*,litebans*,coreprotect*'),
+    'clone_plugin_template' => env('BACKUP_CLONE_PLUGIN_TEMPLATE', 'luckperms*,litebans*,coreprotect*,goxy*'),
 
     'disks' => [
         // There is no configuration for the local disk for Wings. That configuration
