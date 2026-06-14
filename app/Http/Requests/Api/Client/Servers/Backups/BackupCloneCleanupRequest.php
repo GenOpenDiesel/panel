@@ -2,7 +2,6 @@
 
 namespace Pterodactyl\Http\Requests\Api\Client\Servers\Backups;
 
-use Illuminate\Validation\Rule;
 use Pterodactyl\Models\Permission;
 use Pterodactyl\Http\Requests\Api\Client\ClientApiRequest;
 
@@ -20,15 +19,15 @@ class BackupCloneCleanupRequest extends ClientApiRequest
             'plugins.*' => [
                 'string',
                 'max:255',
-                Rule::notRegex('/[\/\\\\]/'),
-                Rule::notRegex('/\.\./'),
+                'not_regex:/[\/\\\\]/',
+                'not_regex:/\.\./',
             ],
             'patterns' => 'sometimes|array|max:100',
             'patterns.*' => [
                 'string',
                 'max:255',
-                Rule::notRegex('/[\/\\\\]/'),
-                Rule::notRegex('/\.\./'),
+                'not_regex:/[\/\\\\]/',
+                'not_regex:/\.\./',
             ],
         ];
     }
