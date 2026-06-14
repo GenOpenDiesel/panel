@@ -15,6 +15,7 @@ import Input from '@/components/elements/Input';
 import setSelectedDockerImage from '@/api/server/setSelectedDockerImage';
 import InputSpinner from '@/components/elements/InputSpinner';
 import useFlash from '@/plugins/useFlash';
+import PaperMcDownloader from '@/components/server/startup/PaperMcDownloader';
 
 const StartupContainer = () => {
     const [loading, setLoading] = useState(false);
@@ -124,6 +125,7 @@ const StartupContainer = () => {
                     )}
                 </TitledGreyBox>
             </div>
+            <PaperMcDownloader variables={data.variables} />
             <h3 css={tw`mt-8 mb-2 text-2xl`}>Variables</h3>
             <div css={tw`grid gap-8 md:grid-cols-2`}>
                 {data.variables.map((variable) => (

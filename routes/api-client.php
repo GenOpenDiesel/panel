@@ -150,6 +150,8 @@ Route::group([
     Route::group(['prefix' => '/startup'], function () {
         Route::get('/', [Client\Servers\StartupController::class, 'index']);
         Route::put('/variable', [Client\Servers\StartupController::class, 'update']);
+        Route::get('/paper/versions', [Client\Servers\StartupController::class, 'paperVersions']);
+        Route::post('/paper/download', [Client\Servers\StartupController::class, 'downloadPaper']);
     });
 
     Route::group(['prefix' => '/settings'], function () {

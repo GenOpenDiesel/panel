@@ -4,13 +4,17 @@ namespace Pterodactyl\Http\Controllers\Api\Client\Servers;
 
 use Pterodactyl\Models\Server;
 use Pterodactyl\Facades\Activity;
+use Pterodactyl\Services\Servers\PaperMcService;
 use Pterodactyl\Services\Servers\StartupCommandService;
 use Pterodactyl\Repositories\Eloquent\ServerVariableRepository;
+use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Transformers\Api\Client\EggVariableTransformer;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Startup\GetStartupRequest;
+use Pterodactyl\Http\Requests\Api\Client\Servers\Startup\DownloadPaperMcRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\Startup\UpdateStartupVariableRequest;
+use Illuminate\Http\JsonResponse;
 
 class StartupController extends ClientApiController
 {
@@ -20,6 +24,8 @@ class StartupController extends ClientApiController
     public function __construct(
         private StartupCommandService $startupCommandService,
         private ServerVariableRepository $repository,
+        private PaperMcService $paperMcService,
+        private DaemonFileRepository $fileRepository,
     ) {
         parent::__construct();
     }
@@ -95,5 +101,60 @@ class StartupController extends ClientApiController
                 'raw_startup_command' => $server->startup,
             ])
             ->toArray();
+    }
+
+    /**
+     * Returns available PaperMC versions for the startup downloader.
+     */
+    public function paperVersions(GetStartupRequest $request, Server $server): JsonResponse
+    {
+        $versions = $this->paperMcService->getVersions();
+
+        return new JsonResponse([
+            'versions' => array_reverse($versions),
+        ]);
+    }
+
+    /**
+     * Downloads the latest PaperMC build for a version and saves it as the server's jar file.
+     *
+     * @throws \Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException
+     */
+    public function downloadPaper(DownloadPaperMcRequest $request, Server $server): JsonResponse
+    {
+        $jarVariable = $server->variables()->where('env_variable', 'SERVER_JARFILE')->first();
+
+        if (is_null($jarVariable)) {
+            throw new BadRequestHttpException('This server does not have a SERVER_JARFILE startup variable.');
+        }
+
+        $targetFile = $jarVariable->server_value ?? $jarVariable->default_value;
+        if (!is_string($targetFile) || $targetFile === '' || !$this->paperMcService->isSafeFileName($targetFile)) {
+            throw new BadRequestHttpException('The configured server jar file name is invalid.');
+        }
+
+        $build = $this->paperMcService->getLatestBuildDownload($request->input('version'));
+
+        $this->fileRepository->setServer($server)->pull(
+            $build['download_url'],
+            '/',
+            [
+                'filename' => $targetFile,
+                'foreground' => true,
+            ]
+        );
+
+        Activity::event('server:startup.paper-download')
+            ->property('version', $build['version'])
+            ->property('build', $build['build'])
+            ->property('filename', $targetFile)
+            ->log();
+
+        return new JsonResponse([
+            'version' => $build['version'],
+            'build' => $build['build'],
+            'source_file' => $build['file_name'],
+            'filename' => $targetFile,
+        ]);
     }
 }
