@@ -68,11 +68,11 @@ const PaperMcDownloader = ({ variables }: Props) => {
         clearFlashes(FLASH_KEY);
 
         downloadPaperBuild(uuid, selectedVersion)
-            .then(({ version, build, filename, sourceFile }) => {
+            .then(({ version, build, filename }) => {
                 addFlash({
                     key: FLASH_KEY,
                     type: 'success',
-                    message: `Downloaded Paper ${version} build ${build} (${sourceFile}) as ${filename}.`,
+                    message: `Paper ${version} #${build} saved as ${filename}.`,
                 });
             })
             .catch((error) => clearAndAddHttpError({ key: FLASH_KEY, error }))
@@ -80,16 +80,15 @@ const PaperMcDownloader = ({ variables }: Props) => {
     };
 
     return (
-        <TitledGreyBox title={'PaperMC Build'} css={tw`mt-8`}>
+        <TitledGreyBox title={'PaperMC'} css={tw`mt-8`}>
             <FlashMessageRender byKey={FLASH_KEY} css={tw`mb-4`} />
-            <p css={tw`text-sm text-neutral-300 mb-4`}>
-                Download the latest PaperMC build for a selected Minecraft version. The file will be saved in the
-                server root as <code css={tw`text-neutral-200`}>{jarFileName}</code>, overwriting the existing jar.
+            <p css={tw`text-sm text-neutral-400 mb-4`}>
+                Latest build for the selected version. Overwrites <code css={tw`text-neutral-300`}>{jarFileName}</code>.
             </p>
             <div css={tw`grid gap-4 md:grid-cols-[1fr_auto] md:items-end`}>
                 <div>
-                    <label htmlFor={'paper_version'} css={tw`text-sm text-neutral-300 block mb-2`}>
-                        Minecraft Version
+                    <label htmlFor={'paper_version'} css={tw`text-sm text-neutral-400 block mb-2`}>
+                        Version
                     </label>
                     <InputSpinner visible={loadingVersions}>
                         <Select
@@ -113,7 +112,7 @@ const PaperMcDownloader = ({ variables }: Props) => {
                 <Can action={'file.create'}>
                     <InputSpinner visible={downloading}>
                         <Button onClick={onDownload} disabled={loadingVersions || !selectedVersion}>
-                            Download Latest Build
+                            Download
                         </Button>
                     </InputSpinner>
                 </Can>
