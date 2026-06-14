@@ -251,14 +251,17 @@ class BackupController extends ClientApiController
         }
 
         return new JsonResponse(array_merge(
-            $this->nodeUsageService->getForDeployment($server->memory, $server->disk),
+            $this->nodeUsageService->getForDeployment(
+                (int) config('backups.clone_memory', 3072),
+                $server->disk
+            ),
             ['plugin_template' => $this->pluginTemplateService->get()]
         ));
     }
 
     /**
      * Creates a new server from a backup with the same settings as the source
-     * server, but with 300% CPU limit.
+     * server, but with 300% CPU limit and a standard 3 GB startup command.
      *
      * @throws \Throwable
      */

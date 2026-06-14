@@ -45,6 +45,14 @@ return [
     // Default plugin removal template used when cloning a server from backup.
     'clone_plugin_template' => env('BACKUP_CLONE_PLUGIN_TEMPLATE', 'luckperms*,litebans*,coreprotect*,goxy*'),
 
+    // Default server memory (MiB) and startup command for servers cloned from backup.
+    // These replace the source server's startup/memory instead of copying them.
+    'clone_memory' => (int) env('BACKUP_CLONE_MEMORY', 3072),
+    'clone_startup' => env(
+        'BACKUP_CLONE_STARTUP',
+        'java -Xms3G -Xmx3G -Duser.timezone=Europe/Warsaw --add-modules=jdk.incubator.vector -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -jar {{SERVER_JARFILE}} --nogui'
+    ),
+
     'disks' => [
         // There is no configuration for the local disk for Wings. That configuration
         // is determined by the Daemon configuration, and not the Panel.

@@ -218,8 +218,9 @@ export default ({ backup }: Props) => {
                 onConfirmed={doCreateServer}
             >
                 <p>
-                    A new server will be provisioned using the same configuration as this server, with the CPU limit
-                    set to 300%. The selected backup will be restored to the new instance. After restoration completes,
+                    A new server will be provisioned with the same disk and limits as this server, CPU set to
+                    300%, and a standard 3 GB startup command. The selected backup will be restored to the new
+                    instance. After restoration completes,
                     matching plugins from the template below will be selected for removal.
                 </p>
                 <div css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>

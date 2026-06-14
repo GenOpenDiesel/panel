@@ -27,7 +27,7 @@ class CreateServerFromBackupService
 
     /**
      * Creates a new server using the source server's settings (with 300% CPU)
-     * and restores the given backup onto it.
+     * and a standard 3 GB startup command, then restores the given backup onto it.
      *
      * @throws \Throwable
      */
@@ -61,6 +61,12 @@ class CreateServerFromBackupService
 
         $allocation = $this->findAllocation($source, $nodeId);
 
+        $cloneMemory = (int) config('backups.clone_memory', 3072);
+        $cloneStartup = (string) config(
+            'backups.clone_startup',
+            'java -Xms3G -Xmx3G -Duser.timezone=Europe/Warsaw --add-modules=jdk.incubator.vector -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -jar {{SERVER_JARFILE}} --nogui'
+        );
+
         $newServer = $this->serverCreationService->handle([
             'name' => $name ?: ('Clone: ' . $source->name),
             'description' => $source->description,
@@ -69,7 +75,7 @@ class CreateServerFromBackupService
             'allocation_id' => $allocation->id,
             'nest_id' => $source->nest_id,
             'egg_id' => $source->egg_id,
-            'memory' => $source->memory,
+            'memory' => $cloneMemory,
             'swap' => $source->swap,
             'disk' => $source->disk,
             'io' => $source->io,
@@ -80,7 +86,7 @@ class CreateServerFromBackupService
             'allocation_limit' => $source->allocation_limit,
             'backup_limit' => $source->backup_limit,
             'environment' => $environment,
-            'startup' => $source->startup,
+            'startup' => $cloneStartup,
             'image' => $source->image,
             'skip_scripts' => true,
         ]);
@@ -147,7 +153,7 @@ class CreateServerFromBackupService
             ->whereNull('server_id')
             ->first();
 
-        if ($allocation && $this->nodeCanFitServer($source->node_id, $source)) {
+        if ($allocation && $this->nodeCanFitServer($source->node_id, $source, $this->cloneMemory())) {
             return $allocation;
         }
 
@@ -159,7 +165,7 @@ class CreateServerFromBackupService
             ->sortBy(fn ($node) => $this->nodeAllocatedMemory($node));
 
         foreach ($nodes as $node) {
-            if (!$this->nodeCanFitServer($node->id, $source)) {
+            if (!$this->nodeCanFitServer($node->id, $source, $this->cloneMemory())) {
                 continue;
             }
 
@@ -188,7 +194,7 @@ class CreateServerFromBackupService
             throw new BadRequestHttpException('The selected node is currently under maintenance.');
         }
 
-        if (!$this->nodeCanFitServer($node->id, $source)) {
+        if (!$this->nodeCanFitServer($node->id, $source, $this->cloneMemory())) {
             throw new BadRequestHttpException('The selected node does not have enough available memory or disk space.');
         }
 
@@ -204,7 +210,7 @@ class CreateServerFromBackupService
         return $allocation;
     }
 
-    private function nodeCanFitServer(int $nodeId, Server $source): bool
+    private function nodeCanFitServer(int $nodeId, Server $source, int $memory): bool
     {
         /** @var Node|null $node */
         $node = Node::query()->find($nodeId);
@@ -219,8 +225,13 @@ class CreateServerFromBackupService
         $memoryLimit = $this->maxWithOverallocation($node->memory, $node->memory_overallocate);
         $diskLimit = $this->maxWithOverallocation($node->disk, $node->disk_overallocate);
 
-        return ($usedMemory + $source->memory) <= $memoryLimit
+        return ($usedMemory + $memory) <= $memoryLimit
             && ($usedDisk + $source->disk) <= $diskLimit;
+    }
+
+    private function cloneMemory(): int
+    {
+        return (int) config('backups.clone_memory', 3072);
     }
 
     private function nodeAllocatedMemory(Node $node): int
