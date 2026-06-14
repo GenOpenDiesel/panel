@@ -248,7 +248,7 @@ export default ({ backup }: Props) => {
                         id={'clone_plugin_template'}
                         value={pluginTemplate}
                         onChange={(e) => setPluginTemplate(e.target.value)}
-                        placeholder={'luckperms*,goxy*,worldedit*'}
+                        placeholder={'luckperms*,litebans*'}
                     />
                     <span css={tw`text-xs text-neutral-400 mt-2 block`}>
                         Comma-separated plugin name patterns. Matching is case-insensitive and files only —
