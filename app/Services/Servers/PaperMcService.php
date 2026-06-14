@@ -71,9 +71,41 @@ class PaperMcService
         return [
             'version' => $version,
             'build' => $latestBuild,
-            'download_url' => self::API_BASE . '/versions/' . rawurlencode($version) . '/builds/' . $latestBuild . '/downloads/' . rawurlencode($downloadName),
+            'download_url' => self::API_BASE . '/versions/' . $version . '/builds/' . $latestBuild . '/downloads/' . $downloadName,
             'file_name' => $downloadName,
         ];
+    }
+
+    /**
+     * Downloads a PaperMC build to a temporary file on the panel server.
+     *
+     * @throws BadRequestHttpException
+     */
+    public function downloadToTemporaryFile(string $url): string
+    {
+        $tempPath = tempnam(sys_get_temp_dir(), 'paper_');
+        if ($tempPath === false) {
+            throw new BadRequestHttpException('Unable to create a temporary download file.');
+        }
+
+        $response = Http::timeout(900)
+            ->withHeaders(['User-Agent' => 'Pterodactyl Panel'])
+            ->sink($tempPath)
+            ->get($url);
+
+        if (!$response->successful()) {
+            @unlink($tempPath);
+
+            throw new BadRequestHttpException('Unable to download the PaperMC build.');
+        }
+
+        if (!is_file($tempPath) || filesize($tempPath) === 0) {
+            @unlink($tempPath);
+
+            throw new BadRequestHttpException('The downloaded PaperMC build was empty.');
+        }
+
+        return $tempPath;
     }
 
     public function isValidVersion(string $version): bool

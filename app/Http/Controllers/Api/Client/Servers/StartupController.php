@@ -134,15 +134,25 @@ class StartupController extends ClientApiController
         }
 
         $build = $this->paperMcService->getLatestBuildDownload($request->input('version'));
+        $tempPath = $this->paperMcService->downloadToTemporaryFile($build['download_url']);
 
-        $this->fileRepository->setServer($server)->pull(
-            $build['download_url'],
-            '/',
-            [
-                'filename' => $targetFile,
-                'foreground' => true,
-            ]
-        );
+        try {
+            $stream = fopen($tempPath, 'rb');
+            if ($stream === false) {
+                throw new BadRequestHttpException('Unable to read the downloaded PaperMC build.');
+            }
+
+            try {
+                $this->fileRepository->setServer($server)->writeStream(
+                    '/' . ltrim($targetFile, '/'),
+                    $stream
+                );
+            } finally {
+                fclose($stream);
+            }
+        } finally {
+            @unlink($tempPath);
+        }
 
         Activity::event('server:startup.paper-download')
             ->property('version', $build['version'])

@@ -120,6 +120,34 @@ class DaemonFileRepository extends DaemonRepository
     }
 
     /**
+     * Writes a stream of data to a file on the server.
+     *
+     * @param  resource  $resource
+     *
+     * @throws DaemonConnectionException
+     */
+    public function writeStream(string $path, $resource): ResponseInterface
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+
+        try {
+            return $this->getHttpClient()->post(
+                sprintf('/api/servers/%s/files/write', $this->server->uuid),
+                [
+                    'query' => ['file' => $path],
+                    'body' => $resource,
+                    'timeout' => 60 * 15,
+                    'headers' => [
+                        'Content-Type' => 'application/octet-stream',
+                    ],
+                ]
+            );
+        } catch (TransferException $exception) {
+            throw new DaemonConnectionException($exception);
+        }
+    }
+
+    /**
      * Return a directory listing for a given path.
      *
      * @throws DaemonConnectionException
