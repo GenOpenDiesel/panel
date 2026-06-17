@@ -13,6 +13,22 @@
 @endsection
 
 @section('content')
+<style>
+    #node-usage-table th.sortable {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    #node-usage-table th.sortable .sort-indicator {
+        color: #9aa5b1;
+        margin-left: 4px;
+    }
+
+    #node-usage-table th.sortable.active .sort-indicator {
+        color: #3c8dbc;
+    }
+</style>
 <div class="row">
     <div class="col-xs-12">
         <div class="box box-primary">
@@ -26,14 +42,14 @@
                 <table class="table table-hover" id="node-usage-table">
                     <thead>
                         <tr>
-                            <th></th>
-                            <th>Węzeł</th>
-                            <th>RAM (live)</th>
-                            <th>CPU (live)</th>
-                            <th>Dysk (live)</th>
-                            <th>Alokacja RAM</th>
-                            <th>Alokacja dysk</th>
-                            <th class="text-center">Serwery</th>
+                            <th class="sortable text-center" data-sort-key="status">Status <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-sort-key="name">Węzeł <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-sort-key="live_memory_bytes">RAM (live) <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-sort-key="live_cpu_absolute">CPU (live) <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-sort-key="live_disk_bytes">Dysk (live) <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-sort-key="allocated_memory_mib">Alokacja RAM <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-sort-key="allocated_disk_mib">Alokacja dysk <span class="sort-indicator"></span></th>
+                            <th class="sortable text-center" data-sort-key="servers">Serwery <span class="sort-indicator"></span></th>
                         </tr>
                     </thead>
                     <tbody id="node-usage-body">
@@ -58,6 +74,11 @@
     <script>
     (function () {
         var refreshInterval = 15000;
+        var latestUsage = null;
+        var currentSort = {
+            key: 'live_memory_bytes',
+            direction: 'desc',
+        };
 
         function formatBytes(bytes) {
             if (!bytes || bytes <= 0) return '0 B';
@@ -108,7 +129,74 @@
             return '<i class="fa fa-heart-o text-danger" title="Offline"></i>';
         }
 
+        function getSortValue(node, key) {
+            switch (key) {
+                case 'status':
+                    return node.online ? 1 : 0;
+                case 'name':
+                    return (node.name || '').toLowerCase();
+                case 'live_memory_bytes':
+                    return node.online ? (node.live.memory_bytes || 0) : -1;
+                case 'live_cpu_absolute':
+                    return node.online ? (node.live.cpu_absolute || 0) : -1;
+                case 'live_disk_bytes':
+                    return node.online ? (node.live.disk_bytes || 0) : -1;
+                case 'allocated_memory_mib':
+                    return node.allocated.memory_mib || 0;
+                case 'allocated_disk_mib':
+                    return node.allocated.disk_mib || 0;
+                case 'servers':
+                    return [
+                        node.live.running_servers || 0,
+                        node.servers_count || 0,
+                    ];
+                default:
+                    return 0;
+            }
+        }
+
+        function compareValues(a, b) {
+            if (Array.isArray(a) && Array.isArray(b)) {
+                for (var i = 0; i < Math.max(a.length, b.length); i++) {
+                    var result = compareValues(a[i] === undefined ? 0 : a[i], b[i] === undefined ? 0 : b[i]);
+                    if (result !== 0) return result;
+                }
+
+                return 0;
+            }
+
+            if (typeof a === 'string' || typeof b === 'string') {
+                return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+            }
+
+            return (a || 0) - (b || 0);
+        }
+
+        function sortNodes(nodes) {
+            return nodes.slice().sort(function (a, b) {
+                var result = compareValues(getSortValue(a, currentSort.key), getSortValue(b, currentSort.key));
+
+                if (result === 0) {
+                    result = compareValues(getSortValue(a, 'name'), getSortValue(b, 'name'));
+                }
+
+                return currentSort.direction === 'asc' ? result : -result;
+            });
+        }
+
+        function updateSortIndicators() {
+            $('#node-usage-table th.sortable').each(function () {
+                var $th = $(this);
+                var active = $th.data('sort-key') === currentSort.key;
+
+                $th.toggleClass('active', active);
+                $th.find('.sort-indicator').html(active ? (currentSort.direction === 'asc' ? '&#9650;' : '&#9660;') : '');
+            });
+        }
+
         function renderNodes(data) {
+            latestUsage = data;
+
             var $body = $('#node-usage-body');
             $body.empty();
 
@@ -117,7 +205,7 @@
                 return;
             }
 
-            data.nodes.forEach(function (node) {
+            sortNodes(data.nodes).forEach(function (node) {
                 var maintenance = node.maintenance_mode ? '<span class="label label-warning"><i class="fa fa-wrench"></i></span> ' : '';
                 var ramLabel = formatBytes(node.live.memory_bytes) + ' / ' + formatBytes(node.system.memory_bytes);
                 var diskLabel = formatBytes(node.live.disk_bytes) + ' / ' + formatMib(node.allocated.disk_max_mib);
@@ -145,6 +233,8 @@
                 var date = new Date(data.updated_at);
                 $('#usage-updated-at').text('Ostatnia aktualizacja: ' + date.toLocaleTimeString());
             }
+
+            updateSortIndicators();
         }
 
         var refreshTimer = null;
@@ -183,6 +273,24 @@
             }
         });
 
+        $('#node-usage-table th.sortable').on('click', function () {
+            var key = $(this).data('sort-key');
+
+            if (currentSort.key === key) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.key = key;
+                currentSort.direction = key === 'name' ? 'asc' : 'desc';
+            }
+
+            if (latestUsage) {
+                renderNodes(latestUsage);
+            } else {
+                loadUsage();
+            }
+        });
+
+        updateSortIndicators();
         loadUsage();
     })();
     </script>
