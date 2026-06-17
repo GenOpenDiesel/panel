@@ -9,6 +9,7 @@ use Pterodactyl\Models\Backup;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Models\Allocation;
 use Illuminate\Support\Facades\Cache;
+use Pterodactyl\Services\Nodes\NodeUsageService;
 use Pterodactyl\Services\Servers\ServerCreationService;
 use Pterodactyl\Repositories\Wings\DaemonBackupRepository;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -22,12 +23,13 @@ class CreateServerFromBackupService
         private DownloadLinkService $downloadLinkService,
         private DaemonBackupRepository $daemonRepository,
         private BackupClonePluginTemplateService $pluginTemplateService,
+        private NodeUsageService $nodeUsageService,
     ) {
     }
 
     /**
      * Creates a new server using the source server's settings (with 300% CPU)
-     * and a standard 3 GB startup command, then restores the given backup onto it.
+     * and the selected memory limit, then restores the given backup onto it.
      *
      * @throws \Throwable
      */
@@ -38,6 +40,8 @@ class CreateServerFromBackupService
         ?string $name = null,
         ?int $nodeId = null,
         ?string $pluginTemplate = null,
+        ?int $memory = null,
+        ?string $paperVersion = null,
     ): Server
     {
         if ($backup->server_id !== $source->id) {
@@ -59,13 +63,10 @@ class CreateServerFromBackupService
             $environment[$variable->env_variable] = $variable->server_value ?? $variable->default_value;
         }
 
-        $allocation = $this->findAllocation($source, $nodeId);
+        $cloneMemory = $this->cloneMemory($memory);
+        $allocation = $this->findAllocation($source, $nodeId, $cloneMemory);
 
-        $cloneMemory = (int) config('backups.clone_memory', 3072);
-        $cloneStartup = (string) config(
-            'backups.clone_startup',
-            'java -Xms3G -Xmx3G -Duser.timezone=Europe/Warsaw --add-modules=jdk.incubator.vector -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -jar {{SERVER_JARFILE}} --nogui'
-        );
+        $cloneStartup = $this->cloneStartup($cloneMemory);
 
         $newServer = $this->serverCreationService->handle([
             'name' => $name ?: $this->generateCloneServerName($source),
@@ -117,6 +118,7 @@ class CreateServerFromBackupService
             'status' => 'restoring',
             'source_backup_uuid' => $backup->uuid,
             'plugin_template' => $template,
+            'paper_version' => $paperVersion !== null && trim($paperVersion) !== '' ? trim($paperVersion) : null,
         ], now()->addHours(24));
 
         return $newServer;
@@ -142,10 +144,10 @@ class CreateServerFromBackupService
     /**
      * @throws BadRequestHttpException
      */
-    private function findAllocation(Server $source, ?int $nodeId = null): Allocation
+    private function findAllocation(Server $source, ?int $nodeId, int $memory): Allocation
     {
         if ($nodeId !== null) {
-            return $this->findAllocationOnNode($source, $nodeId);
+            return $this->findAllocationOnNode($source, $nodeId, $memory);
         }
 
         $allocation = Allocation::query()
@@ -153,7 +155,7 @@ class CreateServerFromBackupService
             ->whereNull('server_id')
             ->first();
 
-        if ($allocation && $this->nodeCanFitServer($source->node_id, $source, $this->cloneMemory())) {
+        if ($allocation && $this->nodeCanFitServer($source->node_id, $source, $memory)) {
             return $allocation;
         }
 
@@ -165,7 +167,7 @@ class CreateServerFromBackupService
             ->sortBy(fn ($node) => $this->nodeAllocatedMemory($node));
 
         foreach ($nodes as $node) {
-            if (!$this->nodeCanFitServer($node->id, $source, $this->cloneMemory())) {
+            if (!$this->nodeCanFitServer($node->id, $source, $memory)) {
                 continue;
             }
 
@@ -181,7 +183,7 @@ class CreateServerFromBackupService
     /**
      * @throws BadRequestHttpException
      */
-    private function findAllocationOnNode(Server $source, int $nodeId): Allocation
+    private function findAllocationOnNode(Server $source, int $nodeId, int $memory): Allocation
     {
         /** @var Node|null $node */
         $node = Node::query()->find($nodeId);
@@ -194,7 +196,7 @@ class CreateServerFromBackupService
             throw new BadRequestHttpException('The selected node is currently under maintenance.');
         }
 
-        if (!$this->nodeCanFitServer($node->id, $source, $this->cloneMemory())) {
+        if (!$this->nodeCanFitServer($node->id, $source, $memory)) {
             throw new BadRequestHttpException('The selected node does not have enough available memory or disk space.');
         }
 
@@ -212,26 +214,34 @@ class CreateServerFromBackupService
 
     private function nodeCanFitServer(int $nodeId, Server $source, int $memory): bool
     {
-        /** @var Node|null $node */
-        $node = Node::query()->find($nodeId);
+        $usage = $this->nodeUsageService->getForDeployment($memory, $source->disk);
 
-        if (!$node) {
-            return false;
+        foreach ($usage['nodes'] as $node) {
+            if ((int) $node['id'] === $nodeId) {
+                return (bool) ($node['can_deploy'] ?? false);
+            }
         }
 
-        $usedMemory = Server::query()->where('node_id', $nodeId)->sum('memory');
-        $usedDisk = Server::query()->where('node_id', $nodeId)->sum('disk');
-
-        $memoryLimit = $this->maxWithOverallocation($node->memory, $node->memory_overallocate);
-        $diskLimit = $this->maxWithOverallocation($node->disk, $node->disk_overallocate);
-
-        return ($usedMemory + $memory) <= $memoryLimit
-            && ($usedDisk + $source->disk) <= $diskLimit;
+        return false;
     }
 
-    private function cloneMemory(): int
+    private function cloneMemory(?int $memory = null): int
     {
-        return (int) config('backups.clone_memory', 3072);
+        return min(10240, max(2048, $memory ?? (int) config('backups.clone_memory', 3072)));
+    }
+
+    private function cloneStartup(int $memory): string
+    {
+        $memoryGiB = max(1, (int) round($memory / 1024));
+        $startup = (string) config(
+            'backups.clone_startup',
+            'java -Xms3G -Xmx3G -Duser.timezone=Europe/Warsaw --add-modules=jdk.incubator.vector -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -jar {{SERVER_JARFILE}} --nogui'
+        );
+
+        $startup = str_replace('{{CLONE_MEMORY_GB}}', (string) $memoryGiB, $startup);
+        $startup = preg_replace('/-Xms\S+/', sprintf('-Xms%dG', $memoryGiB), $startup) ?? $startup;
+
+        return preg_replace('/-Xmx\S+/', sprintf('-Xmx%dG', $memoryGiB), $startup) ?? $startup;
     }
 
     private function generateCloneServerName(Server $source): string
@@ -258,12 +268,4 @@ class CreateServerFromBackupService
         return (int) $node->servers->sum('memory');
     }
 
-    private function maxWithOverallocation(int $value, int $overallocate): int
-    {
-        if ($overallocate > 0) {
-            return (int) ($value * (1 + ($overallocate / 100)));
-        }
-
-        return $value;
-    }
 }

@@ -250,9 +250,13 @@ class BackupController extends ClientApiController
             throw new AuthorizationException();
         }
 
+        $validated = $request->validate([
+            'memory_mib' => 'sometimes|integer|min:2048|max:10240',
+        ]);
+
         return new JsonResponse(array_merge(
             $this->nodeUsageService->getForDeployment(
-                (int) config('backups.clone_memory', 3072),
+                (int) ($validated['memory_mib'] ?? config('backups.clone_memory', 3072)),
                 $server->disk
             ),
             ['plugin_template' => $this->pluginTemplateService->get()]
@@ -261,7 +265,7 @@ class BackupController extends ClientApiController
 
     /**
      * Creates a new server from a backup with the same settings as the source
-     * server, but with 300% CPU limit and a standard 3 GB startup command.
+     * server, but with 300% CPU limit and the selected memory limit.
      *
      * @throws \Throwable
      */
@@ -278,6 +282,8 @@ class BackupController extends ClientApiController
             $request->input('name'),
             $request->integer('node_id') ?: null,
             $request->input('plugin_template'),
+            $request->integer('memory_mib') ?: null,
+            $request->input('paper_version'),
         );
 
         Activity::event('server:backup.create-server')

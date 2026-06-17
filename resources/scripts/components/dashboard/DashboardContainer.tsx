@@ -13,6 +13,21 @@ import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
 import DashboardServerList from '@/components/dashboard/DashboardServerList';
 import useDashboardLayout from '@/components/dashboard/useDashboardLayout';
 import { createDashboardSection, DashboardSortMode, syncLayoutWithServers } from '@/lib/dashboardLayout';
+import loadDirectory from '@/api/server/files/loadDirectory';
+import { findPluginVersionConflicts } from '@/lib/pluginVersionConflicts';
+import { Alert } from '@/components/elements/alert';
+import { Button } from '@/components/elements/button/index';
+
+const PLUGIN_CONFLICT_CHECK_CONCURRENCY = 3;
+
+const serverHasPluginVersionConflict = async (server: Server): Promise<boolean> => {
+    try {
+        const files = await loadDirectory(server.uuid, '/plugins');
+        return findPluginVersionConflicts(files).length > 0;
+    } catch {
+        return false;
+    }
+};
 
 export default () => {
     const { clearFlashes, clearAndAddHttpError } = useFlash();
@@ -20,6 +35,7 @@ export default () => {
     const uuid = useStoreState((state) => state.user.data!.uuid);
     const [showOnlyAdmin, setShowOnlyAdmin] = usePersistedState(`${uuid}:show_all_servers`, false);
     const [isOrganizing, setIsOrganizing] = useState(false);
+    const [pluginVersionConflictServers, setPluginVersionConflictServers] = useState<Server[]>([]);
     const layoutScope = showOnlyAdmin && rootAdmin ? 'admin' : 'own';
     const { layout, setLayout, flushLayout, isLoading: isLayoutLoading } = useDashboardLayout(layoutScope);
     const prevLayoutScopeRef = useRef(layoutScope);
@@ -31,9 +47,8 @@ export default () => {
         }
     }, [layoutScope]);
 
-    const { data: servers, error } = useSWR<Server[]>(
-        ['/api/client/servers/all', showOnlyAdmin && rootAdmin],
-        () => getAllServers({ type: showOnlyAdmin && rootAdmin ? 'admin' : undefined })
+    const { data: servers, error } = useSWR<Server[]>(['/api/client/servers/all', showOnlyAdmin && rootAdmin], () =>
+        getAllServers({ type: showOnlyAdmin && rootAdmin ? 'admin' : undefined })
     );
 
     useEffect(() => {
@@ -41,7 +56,61 @@ export default () => {
         if (!error) clearFlashes('dashboard');
     }, [error]);
 
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!servers || servers.length === 0) {
+            setPluginVersionConflictServers([]);
+
+            return;
+        }
+
+        let nextServerIndex = 0;
+        const conflicts: Server[] = [];
+
+        const checkNextServer = async (): Promise<void> => {
+            while (!cancelled && nextServerIndex < servers.length) {
+                const server = servers[nextServerIndex];
+                nextServerIndex += 1;
+
+                if (await serverHasPluginVersionConflict(server)) {
+                    conflicts.push(server);
+                }
+            }
+        };
+
+        setPluginVersionConflictServers([]);
+
+        Promise.all(
+            Array.from({ length: Math.min(PLUGIN_CONFLICT_CHECK_CONCURRENCY, servers.length) }, () => checkNextServer())
+        ).then(() => {
+            if (!cancelled) {
+                setPluginVersionConflictServers(conflicts);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [servers]);
+
+    const scrollToPluginVersionConflictServer = (serverUuid = pluginVersionConflictServers[0]?.uuid) => {
+        if (!serverUuid) {
+            return;
+        }
+
+        document
+            .getElementById(`dashboard-server-${serverUuid}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
     const isLoading = !servers || isLayoutLoading;
+    const pluginVersionConflictServerUuids = pluginVersionConflictServers.map((server) => server.uuid);
+    const pluginVersionConflictNames = pluginVersionConflictServers.map((server) => server.name);
+    const pluginVersionConflictLabel =
+        pluginVersionConflictNames.length <= 3
+            ? pluginVersionConflictNames.join(', ')
+            : `${pluginVersionConflictNames.slice(0, 3).join(', ')} +${pluginVersionConflictNames.length - 3} more`;
 
     return (
         <PageContentBlock title={'Dashboard'} showFlashKey={'dashboard'}>
@@ -58,15 +127,37 @@ export default () => {
                 </div>
             )}
 
+            {pluginVersionConflictServers.length > 0 && (
+                <Alert type={'danger'} className={'mb-4'}>
+                    <span className={'text-sm'}>
+                        Possible duplicate plugin versions detected on: {pluginVersionConflictLabel}.
+                    </span>
+                    <Button
+                        type={'button'}
+                        size={'xsmall'}
+                        color={'red'}
+                        isSecondary
+                        css={tw`ml-auto`}
+                        onClick={() => scrollToPluginVersionConflictServer()}
+                    >
+                        Show
+                    </Button>
+                </Alert>
+            )}
+
             {!isLoading && servers && servers.length > 0 && (
                 <DashboardToolbar
                     sortMode={layout.sortMode}
                     isOrganizing={isOrganizing}
-                    onSortModeChange={(sortMode: DashboardSortMode) => setLayout((current) => ({ ...current, sortMode }))}
+                    onSortModeChange={(sortMode: DashboardSortMode) =>
+                        setLayout((current) => ({ ...current, sortMode }))
+                    }
                     onToggleOrganizing={() => {
                         setIsOrganizing((current) => {
                             if (current && servers) {
-                                const syncedLayout = syncLayoutWithServers(layout, servers, { pruneEmptySections: true });
+                                const syncedLayout = syncLayoutWithServers(layout, servers, {
+                                    pruneEmptySections: true,
+                                });
                                 void flushLayout(syncedLayout, true).then((saved) => {
                                     if (!saved) {
                                         clearAndAddHttpError({
@@ -99,6 +190,7 @@ export default () => {
                     servers={servers}
                     layout={layout}
                     isOrganizing={isOrganizing}
+                    pluginVersionConflictServerUuids={pluginVersionConflictServerUuids}
                     onLayoutChange={setLayout}
                 />
             ) : (

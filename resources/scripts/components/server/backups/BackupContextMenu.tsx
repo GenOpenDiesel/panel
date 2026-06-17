@@ -20,9 +20,12 @@ import getServerBackups from '@/api/swr/getServerBackups';
 import { ServerBackup } from '@/api/server/types';
 import { ServerContext } from '@/state/server';
 import Input from '@/components/elements/Input';
+import Select from '@/components/elements/Select';
+import InputSpinner from '@/components/elements/InputSpinner';
 import { restoreServerBackup } from '@/api/server/backups';
 import createServerFromBackup from '@/api/server/backups/createServerFromBackup';
 import getCreateServerNodes from '@/api/server/backups/getCreateServerNodes';
+import { getPaperVersions } from '@/api/server/startup/getPaperVersions';
 import CreateServerNodeSelector from '@/components/server/backups/CreateServerNodeSelector';
 import http, { httpErrorToHuman } from '@/api/http';
 import { Dialog } from '@/components/elements/dialog';
@@ -44,7 +47,11 @@ export default ({ backup }: Props) => {
     const [truncate, setTruncate] = useState(false);
     const [serverName, setServerName] = useState('');
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+    const [cloneMemoryGiB, setCloneMemoryGiB] = useState(3);
     const [pluginTemplate, setPluginTemplate] = useState('');
+    const [paperVersions, setPaperVersions] = useState<string[]>([]);
+    const [selectedPaperVersion, setSelectedPaperVersion] = useState('');
+    const [loadingPaperVersions, setLoadingPaperVersions] = useState(false);
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
 
     useEffect(() => {
@@ -55,6 +62,15 @@ export default ({ backup }: Props) => {
         getCreateServerNodes(uuid)
             .then((data) => setPluginTemplate(data.plugin_template || ''))
             .catch((error) => console.error(error));
+
+        setLoadingPaperVersions(true);
+        getPaperVersions(uuid)
+            .then(({ versions }) => {
+                setPaperVersions(versions);
+                setSelectedPaperVersion(versions[0] || '');
+            })
+            .catch((error) => clearAndAddHttpError({ key: 'backups', error }))
+            .then(() => setLoadingPaperVersions(false));
     }, [modal, uuid]);
     const { mutate } = getServerBackups();
 
@@ -126,7 +142,15 @@ export default ({ backup }: Props) => {
 
         setLoading(true);
         clearFlashes('backups');
-        createServerFromBackup(uuid, backup.uuid, serverName || undefined, selectedNodeId, pluginTemplate)
+        createServerFromBackup(
+            uuid,
+            backup.uuid,
+            serverName || undefined,
+            selectedNodeId,
+            pluginTemplate,
+            cloneMemoryGiB * 1024,
+            selectedPaperVersion || undefined
+        )
             .then((server) => {
                 addFlash({
                     key: 'backups',
@@ -137,7 +161,10 @@ export default ({ backup }: Props) => {
                 setModal('');
                 setServerName('');
                 setSelectedNodeId(null);
+                setCloneMemoryGiB(3);
                 setPluginTemplate('');
+                setPaperVersions([]);
+                setSelectedPaperVersion('');
             })
             .catch((error) => {
                 console.error(error);
@@ -213,25 +240,77 @@ export default ({ backup }: Props) => {
                     setModal('');
                     setServerName('');
                     setSelectedNodeId(null);
+                    setCloneMemoryGiB(3);
                     setPluginTemplate('');
+                    setPaperVersions([]);
+                    setSelectedPaperVersion('');
                 }}
                 confirm={'Create Server'}
                 title={`Create Server from "${backup.name}"`}
                 onConfirmed={doCreateServer}
             >
                 <p>
-                    A new server will be provisioned with the same disk and limits as this server, CPU set to
-                    300%, and a standard 3 GB startup command. The selected backup will be restored to the new
-                    instance. After restoration completes,
-                    matching plugins from the template below will be selected for removal.
+                    A new server will be provisioned with the same disk and limits as this server, CPU set to 300%, and
+                    the selected RAM limit. The selected backup will be restored to the new instance. After restoration
+                    completes, matching plugins from the template below will be selected for removal.
                 </p>
+                <div css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
+                    <div css={tw`flex items-center justify-between mb-2`}>
+                        <label htmlFor={'clone_memory'} css={tw`text-base font-medium`}>
+                            RAM
+                        </label>
+                        <span css={tw`text-sm text-neutral-300`}>{cloneMemoryGiB} GB</span>
+                    </div>
+                    <input
+                        id={'clone_memory'}
+                        type={'range'}
+                        min={2}
+                        max={10}
+                        step={1}
+                        value={cloneMemoryGiB}
+                        onChange={(e) => setCloneMemoryGiB(Number(e.target.value))}
+                        css={tw`w-full cursor-pointer`}
+                    />
+                    <div css={tw`flex justify-between text-xs text-neutral-400 mt-1`}>
+                        <span>2 GB</span>
+                        <span>10 GB</span>
+                    </div>
+                </div>
                 <div css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
                     <CreateServerNodeSelector
                         serverUuid={uuid}
                         selectedNodeId={selectedNodeId}
+                        memoryMiB={cloneMemoryGiB * 1024}
                         onSelect={setSelectedNodeId}
                     />
                 </div>
+                <p css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
+                    <label htmlFor={'clone_paper_version'} css={tw`text-base block mb-2`}>
+                        Paper Version
+                    </label>
+                    <InputSpinner visible={loadingPaperVersions}>
+                        <Select
+                            id={'clone_paper_version'}
+                            value={selectedPaperVersion}
+                            disabled={loadingPaperVersions || paperVersions.length === 0}
+                            onChange={(e) => setSelectedPaperVersion(e.target.value)}
+                        >
+                            {paperVersions.length === 0 ? (
+                                <option value={''}>No Paper versions available</option>
+                            ) : (
+                                paperVersions.map((version) => (
+                                    <option key={version} value={version}>
+                                        {version}
+                                    </option>
+                                ))
+                            )}
+                        </Select>
+                    </InputSpinner>
+                    <span css={tw`text-xs text-neutral-400 mt-2 block`}>
+                        Latest build for the selected Paper version will be downloaded after the backup restore
+                        finishes.
+                    </span>
+                </p>
                 <p css={tw`mt-4 -mb-2 bg-gray-700 p-3 rounded`}>
                     <label htmlFor={'clone_server_name'} css={tw`text-base block mb-2`}>
                         Server Name (Optional)
@@ -254,8 +333,9 @@ export default ({ backup }: Props) => {
                         placeholder={'luckperms*,litebans*,coreprotect*,goxy*'}
                     />
                     <span css={tw`text-xs text-neutral-400 mt-2 block`}>
-                        Comma-separated plugin name patterns. Matching is case-insensitive and files only —
-                        e.g. <code css={tw`text-neutral-300`}>goxy*</code> matches <code css={tw`text-neutral-300`}>Goxy.jar</code>.
+                        Comma-separated plugin name patterns. Matching is case-insensitive and files only — e.g.{' '}
+                        <code css={tw`text-neutral-300`}>goxy*</code> matches{' '}
+                        <code css={tw`text-neutral-300`}>Goxy.jar</code>.
                     </span>
                 </p>
             </Dialog.Confirm>

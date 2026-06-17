@@ -23,6 +23,8 @@ import ErrorBoundary from '@/components/elements/ErrorBoundary';
 import { FileActionCheckbox } from '@/components/server/files/SelectFileCheckbox';
 import { hashToPath, cleanDirectoryPath } from '@/helpers';
 import style from './style.module.css';
+import { Alert } from '@/components/elements/alert';
+import { findPluginVersionConflicts } from '@/lib/pluginVersionConflicts';
 
 const FILE_DISPLAY_LIMIT = 400;
 
@@ -31,6 +33,8 @@ const isLogsDirectory = (directory: string): boolean => {
 
     return path === '/logs' || path.startsWith('/logs/');
 };
+
+const isPluginsDirectory = (directory: string): boolean => cleanDirectoryPath(directory) === '/plugins';
 
 const sortFiles = (files: FileObject[], directory: string): FileObject[] => {
     if (isLogsDirectory(directory)) {
@@ -73,6 +77,20 @@ export default () => {
         setSelectedFiles(e.currentTarget.checked ? files?.map((file) => file.name) || [] : []);
     };
 
+    const scrollToPluginVersionConflict = () => {
+        document
+            .querySelector('[data-plugin-version-conflict="true"]')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const sortedFiles = files ? sortFiles(files, directory) : [];
+    const pluginVersionConflicts = files && isPluginsDirectory(directory) ? findPluginVersionConflicts(files) : [];
+    const pluginVersionConflictFiles = new Set<string>();
+
+    pluginVersionConflicts.forEach((conflict) => {
+        conflict.files.forEach((file) => pluginVersionConflictFiles.add(file));
+    });
+
     if (error) {
         return <ServerError message={httpErrorToHuman(error)} onRetry={() => mutate()} />;
     }
@@ -113,6 +131,21 @@ export default () => {
                     ) : (
                         <CSSTransition classNames={'fade'} timeout={150} appear in>
                             <div>
+                                {pluginVersionConflicts.length > 0 && (
+                                    <Alert type={'danger'} className={'mb-4'}>
+                                        <span className={'text-sm'}>Possible duplicate plugin versions detected.</span>
+                                        <Button
+                                            type={'button'}
+                                            size={'xsmall'}
+                                            color={'red'}
+                                            isSecondary
+                                            css={tw`ml-auto`}
+                                            onClick={scrollToPluginVersionConflict}
+                                        >
+                                            Show
+                                        </Button>
+                                    </Alert>
+                                )}
                                 {files.length > FILE_DISPLAY_LIMIT && (
                                     <div css={tw`rounded bg-yellow-400 mb-px p-3`}>
                                         <p css={tw`text-yellow-900 text-sm text-center`}>
@@ -121,8 +154,12 @@ export default () => {
                                         </p>
                                     </div>
                                 )}
-                                {sortFiles(files, directory).map((file) => (
-                                    <FileObjectRow key={file.key} file={file} />
+                                {sortedFiles.map((file) => (
+                                    <FileObjectRow
+                                        key={file.key}
+                                        file={file}
+                                        hasPluginVersionConflict={pluginVersionConflictFiles.has(file.name)}
+                                    />
                                 ))}
                                 <MassActionsBar />
                             </div>

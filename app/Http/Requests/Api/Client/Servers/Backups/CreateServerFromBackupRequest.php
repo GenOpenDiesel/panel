@@ -18,6 +18,8 @@ class CreateServerFromBackupRequest extends ClientApiRequest
             'name' => 'sometimes|nullable|string|max:191',
             'node_id' => 'sometimes|nullable|integer|exists:nodes,id',
             'plugin_template' => 'sometimes|nullable|string|max:2000',
+            'memory_mib' => 'sometimes|integer|min:2048|max:10240',
+            'paper_version' => 'sometimes|nullable|string|max:20|regex:/^\d+\.\d+(?:\.\d+)?(?:-pre\d+)?$/',
         ];
     }
 }

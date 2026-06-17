@@ -7,7 +7,10 @@ use Illuminate\Http\Request;
 use Pterodactyl\Models\Backup;
 use Illuminate\Http\JsonResponse;
 use Pterodactyl\Facades\Activity;
+use Pterodactyl\Models\Server;
+use Pterodactyl\Services\Servers\PaperMcService;
 use Pterodactyl\Exceptions\DisplayException;
+use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Http\Controllers\Controller;
 use Pterodactyl\Extensions\Backups\BackupManager;
 use Pterodactyl\Extensions\Filesystem\S3Filesystem;
@@ -16,14 +19,18 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Pterodactyl\Http\Requests\Api\Remote\ReportBackupCompleteRequest;
 use Pterodactyl\Services\Backups\CreateServerFromBackupService;
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class BackupStatusController extends Controller
 {
     /**
      * BackupStatusController constructor.
      */
-    public function __construct(private BackupManager $backupManager)
-    {
+    public function __construct(
+        private BackupManager $backupManager,
+        private PaperMcService $paperMcService,
+        private DaemonFileRepository $fileRepository,
+    ) {
     }
 
     /**
@@ -107,6 +114,12 @@ class BackupStatusController extends Controller
         $cacheKey = CreateServerFromBackupService::cacheKey($model->server->id);
         if ($request->boolean('successful') && Cache::has($cacheKey)) {
             $state = Cache::get($cacheKey);
+            $paperVersion = is_array($state) ? ($state['paper_version'] ?? null) : null;
+
+            if (is_string($paperVersion) && $paperVersion !== '') {
+                $state['paper_download'] = $this->downloadSelectedPaper($model->server, $paperVersion);
+            }
+
             $state['status'] = 'awaiting_plugins';
             Cache::put($cacheKey, $state, now()->addHours(24));
         } elseif (!$request->boolean('successful') && Cache::has($cacheKey)) {
@@ -119,6 +132,60 @@ class BackupStatusController extends Controller
             ->log();
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    private function downloadSelectedPaper(Server $server, string $version): array
+    {
+        try {
+            $jarVariable = $server->variables()->where('env_variable', 'SERVER_JARFILE')->first();
+
+            if (is_null($jarVariable)) {
+                throw new BadRequestHttpException('This server does not have a SERVER_JARFILE startup variable.');
+            }
+
+            $targetFile = $jarVariable->server_value ?? $jarVariable->default_value;
+            if (!is_string($targetFile) || $targetFile === '' || !$this->paperMcService->isSafeFileName($targetFile)) {
+                throw new BadRequestHttpException('The configured server jar file name is invalid.');
+            }
+
+            $build = $this->paperMcService->getLatestBuildDownload($version);
+            $tempPath = $this->paperMcService->downloadToTemporaryFile($build['download_url']);
+
+            try {
+                $this->fileRepository->setServer($server)->writeFile(
+                    '/' . ltrim($targetFile, '/'),
+                    $tempPath
+                );
+            } finally {
+                @unlink($tempPath);
+            }
+
+            Activity::event('server:startup.paper-download')
+                ->subject($server)
+                ->property('version', $build['version'])
+                ->property('build', $build['build'])
+                ->property('filename', $targetFile)
+                ->log();
+
+            return [
+                'status' => 'success',
+                'version' => $build['version'],
+                'build' => $build['build'],
+                'filename' => $targetFile,
+            ];
+        } catch (Throwable $exception) {
+            Activity::event('server:startup.paper-download-failed')
+                ->subject($server)
+                ->property('version', $version)
+                ->property('error', $exception->getMessage())
+                ->log();
+
+            return [
+                'status' => 'failed',
+                'version' => $version,
+                'error' => $exception->getMessage(),
+            ];
+        }
     }
 
     /**

@@ -49,9 +49,10 @@ class NodeUsageService
 
         foreach ($data['nodes'] as &$node) {
             $freeCount = (int) ($freeAllocations[$node['id']] ?? 0);
-            $memMax = (int) $node['allocated']['memory_max_mib'];
             $diskMax = (int) $node['allocated']['disk_max_mib'];
-            $memAvail = $memMax - (int) $node['allocated']['memory_mib'];
+            $systemMemoryMib = (int) floor(((int) $node['system']['memory_bytes']) / 1024 / 1024);
+            $liveMemoryMib = (int) ceil(((int) $node['live']['memory_bytes']) / 1024 / 1024);
+            $memAvail = $systemMemoryMib - $liveMemoryMib;
             $diskAvail = $diskMax - (int) $node['allocated']['disk_mib'];
 
             $node['free_allocations'] = $freeCount;
@@ -70,7 +71,7 @@ class NodeUsageService
                 return $b['can_deploy'] <=> $a['can_deploy'];
             }
 
-            return ($a['allocated']['memory_percent'] ?? 0) <=> ($b['allocated']['memory_percent'] ?? 0);
+            return ($a['live']['memory_percent'] ?? 0) <=> ($b['live']['memory_percent'] ?? 0);
         });
 
         return $data;

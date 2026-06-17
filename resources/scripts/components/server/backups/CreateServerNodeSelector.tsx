@@ -6,6 +6,7 @@ import getCreateServerNodes, { CreateServerNodeUsage } from '@/api/server/backup
 interface Props {
     serverUuid: string;
     selectedNodeId: number | null;
+    memoryMiB: number;
     onSelect: (nodeId: number | null) => void;
 }
 
@@ -49,7 +50,7 @@ const UsageBar = ({ percent, label }: { percent: number; label: string }) => (
     </div>
 );
 
-export default ({ serverUuid, selectedNodeId, onSelect }: Props) => {
+export default ({ serverUuid, selectedNodeId, memoryMiB, onSelect }: Props) => {
     const [nodes, setNodes] = useState<CreateServerNodeUsage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -61,7 +62,7 @@ export default ({ serverUuid, selectedNodeId, onSelect }: Props) => {
     selectedNodeIdRef.current = selectedNodeId;
 
     const loadNodes = useCallback(() => {
-        getCreateServerNodes(serverUuid)
+        getCreateServerNodes(serverUuid, memoryMiB)
             .then((data) => {
                 setNodes(data.nodes);
                 setUpdatedAt(data.updated_at);
@@ -83,7 +84,7 @@ export default ({ serverUuid, selectedNodeId, onSelect }: Props) => {
             })
             .catch(() => setError(true))
             .finally(() => setLoading(false));
-    }, [serverUuid, onSelect]);
+    }, [serverUuid, memoryMiB, onSelect]);
 
     useEffect(() => {
         initialSelectionDone.current = false;
@@ -103,7 +104,7 @@ export default ({ serverUuid, selectedNodeId, onSelect }: Props) => {
         return () => {
             if (timerRef.current) window.clearTimeout(timerRef.current);
         };
-    }, [serverUuid, loadNodes]);
+    }, [serverUuid, memoryMiB, loadNodes]);
 
     if (loading && nodes.length === 0) {
         return (
@@ -161,28 +162,34 @@ export default ({ serverUuid, selectedNodeId, onSelect }: Props) => {
                                 </span>
                                 <span css={tw`text-xs text-neutral-400`}>{node.location}</span>
                             </div>
-                            {node.maintenance_mode && (
-                                <p css={tw`text-xs text-yellow-400 mb-1`}>Tryb konserwacji</p>
-                            )}
+                            {node.maintenance_mode && <p css={tw`text-xs text-yellow-400 mb-1`}>Tryb konserwacji</p>}
                             {!node.online ? (
                                 <p css={tw`text-xs text-neutral-400`}>Węzeł niedostępny</p>
                             ) : (
                                 <>
                                     <UsageBar
                                         percent={node.live.memory_percent}
-                                        label={`RAM: ${formatBytes(node.live.memory_bytes)} / ${formatBytes(node.system.memory_bytes)}`}
+                                        label={`RAM: ${formatBytes(node.live.memory_bytes)} / ${formatBytes(
+                                            node.system.memory_bytes
+                                        )}`}
                                     />
                                     <UsageBar
                                         percent={node.live.cpu_absolute}
-                                        label={`CPU: ${node.live.cpu_absolute.toFixed(1)}% (${node.system.cpu_threads} wątków)`}
+                                        label={`CPU: ${node.live.cpu_absolute.toFixed(1)}% (${
+                                            node.system.cpu_threads
+                                        } wątków)`}
                                     />
                                     <UsageBar
                                         percent={node.live.disk_percent}
-                                        label={`Dysk: ${formatBytes(node.live.disk_bytes)} / ${formatMib(node.allocated.disk_max_mib)}`}
+                                        label={`Dysk: ${formatBytes(node.live.disk_bytes)} / ${formatMib(
+                                            node.allocated.disk_max_mib
+                                        )}`}
                                     />
                                     <UsageBar
                                         percent={node.allocated.memory_percent}
-                                        label={`Alokacja RAM: ${formatMib(node.allocated.memory_mib)} / ${formatMib(node.allocated.memory_max_mib)}`}
+                                        label={`Alokacja RAM: ${formatMib(node.allocated.memory_mib)} / ${formatMib(
+                                            node.allocated.memory_max_mib
+                                        )}`}
                                     />
                                 </>
                             )}

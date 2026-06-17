@@ -14,6 +14,7 @@ import { usePermissions } from '@/plugins/usePermissions';
 import { join } from 'pathe';
 import { bytesToString } from '@/lib/formatters';
 import styles from './style.module.css';
+import classNames from 'classnames';
 
 const Clickable: React.FC<{ file: FileObject }> = memo(({ file, children }) => {
     const [canRead] = usePermissions(['file.read']);
@@ -34,9 +35,10 @@ const Clickable: React.FC<{ file: FileObject }> = memo(({ file, children }) => {
     );
 }, isEqual);
 
-const FileObjectRow = ({ file }: { file: FileObject }) => (
+const FileObjectRow = ({ file, hasPluginVersionConflict }: { file: FileObject; hasPluginVersionConflict?: boolean }) => (
     <div
-        className={styles.file_row}
+        className={classNames(styles.file_row, { [styles.plugin_version_conflict]: hasPluginVersionConflict })}
+        data-plugin-version-conflict={hasPluginVersionConflict ? 'true' : undefined}
         key={file.name}
         onContextMenu={(e) => {
             e.preventDefault();
@@ -72,5 +74,5 @@ export default memo(FileObjectRow, (prevProps, nextProps) => {
     const { isArchiveType: nextIsArchiveType, isEditable: nextIsEditable, ...nextFile } = nextProps.file;
     /* eslint-enable @typescript-eslint/no-unused-vars */
 
-    return isEqual(prevFile, nextFile);
+    return isEqual(prevFile, nextFile) && prevProps.hasPluginVersionConflict === nextProps.hasPluginVersionConflict;
 });

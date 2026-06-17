@@ -26,3 +26,9 @@
         }
     }
 }
+
+.plugin_version_conflict {
+    @apply border border-red-500;
+
+    box-shadow: inset 0 -3px 0 rgb(239 68 68 / 90%);
+}

@@ -40,9 +40,11 @@ export interface CreateServerNodesResponse {
     plugin_template: string;
 }
 
-export default (uuid: string): Promise<CreateServerNodesResponse> => {
+export default (uuid: string, memoryMiB?: number): Promise<CreateServerNodesResponse> => {
     return new Promise((resolve, reject) => {
-        http.get(`/api/client/servers/${uuid}/backups/create-server/nodes`)
+        http.get(`/api/client/servers/${uuid}/backups/create-server/nodes`, {
+            params: memoryMiB ? { memory_mib: memoryMiB } : undefined,
+        })
             .then(({ data }) => resolve(data))
             .catch(reject);
     });

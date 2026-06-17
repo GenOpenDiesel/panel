@@ -28,6 +28,7 @@ interface Props {
     servers: Server[];
     layout: DashboardLayout;
     isOrganizing: boolean;
+    pluginVersionConflictServerUuids: string[];
     onLayoutChange: (layout: DashboardLayout) => void;
 }
 
@@ -101,7 +102,12 @@ const SectionHeader = ({
                 </h3>
             )}
             {isOrganizing && (
-                <Button type={'button'} variant={Button.Variants.Secondary} size={Button.Sizes.Small} onClick={onDelete}>
+                <Button
+                    type={'button'}
+                    variant={Button.Variants.Secondary}
+                    size={Button.Sizes.Small}
+                    onClick={onDelete}
+                >
                     Usuń sekcję
                 </Button>
             )}
@@ -114,19 +120,26 @@ const DraggableServerRow = ({
     sectionId,
     index,
     isOrganizing,
+    hasPluginVersionConflict,
     onDropAt,
 }: {
     server: Server;
     sectionId: string | null;
     index: number;
     isOrganizing: boolean;
+    hasPluginVersionConflict: boolean;
     onDropAt: (payload: DragPayload, targetIndex: number) => void;
 }) => {
     const [dragOver, setDragOver] = useState(false);
 
     return (
         <div
-            css={[tw`relative`, dragOver && isOrganizing && tw`ring-2 ring-cyan-500 rounded`]}
+            id={`dashboard-server-${server.uuid}`}
+            css={[
+                tw`relative rounded transition-shadow duration-150`,
+                hasPluginVersionConflict && tw`ring-2 ring-red-500 ring-opacity-80`,
+                dragOver && isOrganizing && tw`ring-2 ring-cyan-500`,
+            ]}
             onDragOver={(event) => {
                 if (!isOrganizing) {
                     return;
@@ -179,13 +192,11 @@ const DraggableServerRow = ({
 };
 
 const SectionDropArea = ({
-    sectionId,
     isOrganizing,
     isEmpty,
     onDropAt,
     children,
 }: {
-    sectionId: string | null;
     isOrganizing: boolean;
     isEmpty: boolean;
     onDropAt: (payload: DragPayload, targetIndex: number) => void;
@@ -198,7 +209,9 @@ const SectionDropArea = ({
             css={[
                 tw`rounded transition-colors duration-150`,
                 isOrganizing && tw`min-h-[3rem]`,
-                dragOver && isOrganizing && tw`bg-cyan-500 bg-opacity-10 ring-2 ring-cyan-500 border border-dashed border-cyan-500`,
+                dragOver &&
+                    isOrganizing &&
+                    tw`bg-cyan-500 bg-opacity-10 ring-2 ring-cyan-500 border border-dashed border-cyan-500`,
             ]}
             onDragOver={(event) => {
                 if (!isOrganizing) {
@@ -235,7 +248,9 @@ const SectionDropArea = ({
         >
             {children}
             {isOrganizing && isEmpty && (
-                <div css={tw`rounded border border-dashed border-neutral-600 p-6 text-center text-sm text-neutral-500 pointer-events-none`}>
+                <div
+                    css={tw`rounded border border-dashed border-neutral-600 p-6 text-center text-sm text-neutral-500 pointer-events-none`}
+                >
                     Przeciągnij serwery tutaj
                 </div>
             )}
@@ -243,9 +258,13 @@ const SectionDropArea = ({
     );
 };
 
-export default ({ servers, layout, isOrganizing, onLayoutChange }: Props) => {
+export default ({ servers, layout, isOrganizing, pluginVersionConflictServerUuids, onLayoutChange }: Props) => {
     const layoutRef = useRef(layout);
     layoutRef.current = layout;
+    const pluginVersionConflictServerUuidSet = useMemo(
+        () => new Set(pluginVersionConflictServerUuids),
+        [pluginVersionConflictServerUuids]
+    );
 
     const organized = useMemo(
         () => organizeDashboardServers(servers, layout, { includeEmptySections: isOrganizing }),
@@ -308,13 +327,17 @@ export default ({ servers, layout, isOrganizing, onLayoutChange }: Props) => {
 
         const insertIndex = targetIndex === Number.MAX_SAFE_INTEGER ? undefined : targetIndex;
         onLayoutChange(
-            moveServerInLayout({ ...currentLayout, sortMode: 'custom' }, payload.serverUuid, targetSectionId, insertIndex)
+            moveServerInLayout(
+                { ...currentLayout, sortMode: 'custom' },
+                payload.serverUuid,
+                targetSectionId,
+                insertIndex
+            )
         );
     };
 
     const renderServers = (sectionServers: Server[], sectionId: string | null) => (
         <SectionDropArea
-            sectionId={sectionId}
             isOrganizing={isOrganizing}
             isEmpty={sectionServers.length === 0}
             onDropAt={(payload, index) => handleDropAt(sectionId, index, payload)}
@@ -326,6 +349,7 @@ export default ({ servers, layout, isOrganizing, onLayoutChange }: Props) => {
                     sectionId={sectionId}
                     index={index}
                     isOrganizing={isOrganizing}
+                    hasPluginVersionConflict={pluginVersionConflictServerUuidSet.has(server.uuid)}
                     onDropAt={(payload, dropIndex) => handleDropAt(sectionId, dropIndex, payload)}
                 />
             ))}
