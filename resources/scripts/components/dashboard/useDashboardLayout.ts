@@ -130,8 +130,7 @@ export default (scope: DashboardLayoutScope) => {
         (updater: DashboardLayout | ((current: DashboardLayout) => DashboardLayout)) => {
             setScopedLayouts((current) => {
                 const currentScopeLayout = cloneDashboardLayout(current[scope]);
-                const nextScopeLayout =
-                    typeof updater === 'function' ? updater(currentScopeLayout) : updater;
+                const nextScopeLayout = typeof updater === 'function' ? updater(currentScopeLayout) : updater;
                 const nextLayouts = cloneScopedDashboardLayouts({
                     ...current,
                     [scope]: nextScopeLayout,

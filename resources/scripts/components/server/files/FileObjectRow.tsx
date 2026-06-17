@@ -35,7 +35,13 @@ const Clickable: React.FC<{ file: FileObject }> = memo(({ file, children }) => {
     );
 }, isEqual);
 
-const FileObjectRow = ({ file, hasPluginVersionConflict }: { file: FileObject; hasPluginVersionConflict?: boolean }) => (
+const FileObjectRow = ({
+    file,
+    hasPluginVersionConflict,
+}: {
+    file: FileObject;
+    hasPluginVersionConflict?: boolean;
+}) => (
     <div
         className={classNames(styles.file_row, { [styles.plugin_version_conflict]: hasPluginVersionConflict })}
         data-plugin-version-conflict={hasPluginVersionConflict ? 'true' : undefined}

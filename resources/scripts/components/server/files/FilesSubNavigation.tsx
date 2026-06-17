@@ -10,7 +10,12 @@ export default () => {
 
     return (
         <div css={tw`flex flex-wrap gap-2 mb-4 border-b border-neutral-700 pb-3`}>
-            <NavLink to={baseUrl} exact css={tw`px-3 py-1.5 rounded text-sm text-neutral-300 hover:text-neutral-100`} activeClassName={'!text-neutral-100 bg-neutral-600'}>
+            <NavLink
+                to={baseUrl}
+                exact
+                css={tw`px-3 py-1.5 rounded text-sm text-neutral-300 hover:text-neutral-100`}
+                activeClassName={'!text-neutral-100 bg-neutral-600'}
+            >
                 Przeglądarka
             </NavLink>
             {rootAdmin && (

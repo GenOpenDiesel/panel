@@ -50,11 +50,7 @@ const CloneCleanupModal = () => {
 
     useWebsocketEvent(SocketEvent.BACKUP_RESTORE_COMPLETED, () => {
         getServer(uuid)
-            .then(([server]) => {
-                if (server.cloneCleanupPending) {
-                    loadPlugins();
-                }
-            })
+            .then(() => loadPlugins())
             .catch((error) => console.error(error));
     });
 
@@ -94,12 +90,17 @@ const CloneCleanupModal = () => {
     };
 
     return (
-        <Modal visible={visible} onDismissed={() => setVisible(false)} closeOnBackground={false} showSpinnerOverlay={loading}>
+        <Modal
+            visible={visible}
+            onDismissed={() => setVisible(false)}
+            closeOnBackground={false}
+            showSpinnerOverlay={loading}
+        >
             <FlashMessageRender key={'clone-cleanup'} css={tw`mb-4`} />
             <h2 css={tw`text-2xl mb-4 text-neutral-100`}>Remove Plugins</h2>
             <p css={tw`text-neutral-300 mb-4`}>
-                The backup has been restored to this server. Review the plugin removal template below or manually
-                select files in the <code css={tw`text-neutral-200`}>/plugins</code> directory.
+                The backup has been restored to this server. Review the plugin removal template below or manually select
+                files in the <code css={tw`text-neutral-200`}>/plugins</code> directory.
             </p>
             <div css={tw`mb-4`}>
                 <label htmlFor={'clone_plugin_patterns'} css={tw`text-sm text-neutral-300 block mb-2`}>

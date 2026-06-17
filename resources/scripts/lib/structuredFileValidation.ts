@@ -23,10 +23,7 @@ export const getStructuredFileType = (filename: string): StructuredFileType | nu
     return null;
 };
 
-export const getStructuredValidationSummary = (
-    filename: string,
-    issue?: StructuredValidationIssue | null
-): string => {
+export const getStructuredValidationSummary = (filename: string, issue?: StructuredValidationIssue | null): string => {
     const type = getStructuredFileType(filename);
 
     if (!type) {
@@ -43,10 +40,7 @@ export const getStructuredValidationSummary = (
     return `Plik zawiera błąd składni ${label}. Popraw go przed zapisem.`;
 };
 
-export const validateStructuredFileContent = (
-    filename: string,
-    content: string
-): StructuredValidationIssue | null => {
+export const validateStructuredFileContent = (filename: string, content: string): StructuredValidationIssue | null => {
     const type = getStructuredFileType(filename);
 
     if (!type || content.trim() === '') {

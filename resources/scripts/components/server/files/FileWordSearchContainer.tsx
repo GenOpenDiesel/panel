@@ -76,7 +76,9 @@ export default () => {
     const [searchedQuery, setSearchedQuery] = useState('');
 
     if (!rootAdmin) {
-        return <ServerError title={'Brak dostępu'} message={'Szukanie słowne jest dostępne tylko dla administratorów.'} />;
+        return (
+            <ServerError title={'Brak dostępu'} message={'Szukanie słowne jest dostępne tylko dla administratorów.'} />
+        );
     }
 
     const handleSearch = async () => {
@@ -93,14 +95,19 @@ export default () => {
         setProgress(null);
 
         try {
-            const data = await searchFileContentAll(uuid, trimmed, directory.trim() || '/', (chunkProgress, partialResults) => {
-                if (abortRef.current) {
-                    return;
-                }
+            const data = await searchFileContentAll(
+                uuid,
+                trimmed,
+                directory.trim() || '/',
+                (chunkProgress, partialResults) => {
+                    if (abortRef.current) {
+                        return;
+                    }
 
-                setProgress(chunkProgress);
-                setResults(partialResults);
-            });
+                    setProgress(chunkProgress);
+                    setResults(partialResults);
+                }
+            );
 
             if (abortRef.current) {
                 return;
@@ -130,8 +137,8 @@ export default () => {
 
             <div css={tw`bg-neutral-800 rounded p-4 mb-4`}>
                 <p css={tw`text-sm text-neutral-400 mb-4`}>
-                    Wyszukuje frazę w plikach tekstowych (yml, json, txt i podobne) do 0,5&nbsp;MB.
-                    Pomija katalogi <code css={tw`text-neutral-300`}>world</code>, <code css={tw`text-neutral-300`}>cache</code> i{' '}
+                    Wyszukuje frazę w plikach tekstowych (yml, json, txt i podobne) do 0,5&nbsp;MB. Pomija katalogi{' '}
+                    <code css={tw`text-neutral-300`}>world</code>, <code css={tw`text-neutral-300`}>cache</code> i{' '}
                     <code css={tw`text-neutral-300`}>logs</code> oraz symlinki.
                 </p>
 
@@ -150,7 +157,10 @@ export default () => {
                         />
                     </div>
                     <div>
-                        <label htmlFor={'file_search_directory'} css={tw`text-xs uppercase text-neutral-400 block mb-2`}>
+                        <label
+                            htmlFor={'file_search_directory'}
+                            css={tw`text-xs uppercase text-neutral-400 block mb-2`}
+                        >
                             Katalog startowy
                         </label>
                         <Input
@@ -195,7 +205,8 @@ export default () => {
                     </p>
                     {meta.files_skipped_extension > 0 || meta.files_skipped_size > 0 ? (
                         <p css={tw`text-xs text-neutral-500 mt-1`}>
-                            Pominięto {meta.files_skipped_extension} plików (zły typ) i {meta.files_skipped_size} (za duże).
+                            Pominięto {meta.files_skipped_extension} plików (zły typ) i {meta.files_skipped_size} (za
+                            duże).
                             {meta.directories_skipped > 0 && ` Wykluczono ${meta.directories_skipped} katalogów.`}
                         </p>
                     ) : null}
@@ -214,7 +225,10 @@ export default () => {
                         </thead>
                         <tbody>
                             {results.map((result, index) => (
-                                <tr key={`${result.file}-${result.line}-${index}`} css={tw`border-b border-neutral-800 hover:bg-neutral-800`}>
+                                <tr
+                                    key={`${result.file}-${result.line}-${index}`}
+                                    css={tw`border-b border-neutral-800 hover:bg-neutral-800`}
+                                >
                                     <td css={tw`py-2 pr-4 align-top`}>
                                         <NavLink
                                             to={editUrl(result.file)}
@@ -224,7 +238,9 @@ export default () => {
                                         </NavLink>
                                     </td>
                                     <td css={tw`py-2 pr-4 align-top text-neutral-400`}>{result.line}</td>
-                                    <td css={tw`py-2 align-top text-neutral-300 break-all font-mono text-xs`}>{result.content}</td>
+                                    <td css={tw`py-2 align-top text-neutral-300 break-all font-mono text-xs`}>
+                                        {result.content}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

@@ -16,7 +16,10 @@ const getPluginVersionParts = (file: PluginFile): { key: string; name: string } 
         return null;
     }
 
-    const fileNameWithoutExtension = file.name.replace(/\.jar$/i, '').replace(PLUGIN_COPY_SUFFIX_REGEX, '').trim();
+    const fileNameWithoutExtension = file.name
+        .replace(/\.jar$/i, '')
+        .replace(PLUGIN_COPY_SUFFIX_REGEX, '')
+        .trim();
     const match = fileNameWithoutExtension.match(PLUGIN_VERSION_SUFFIX_REGEX);
 
     if (!match) {

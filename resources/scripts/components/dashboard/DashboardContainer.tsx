@@ -16,7 +16,7 @@ import { createDashboardSection, DashboardSortMode, syncLayoutWithServers } from
 import loadDirectory from '@/api/server/files/loadDirectory';
 import { findPluginVersionConflicts } from '@/lib/pluginVersionConflicts';
 import { Alert } from '@/components/elements/alert';
-import { Button } from '@/components/elements/button/index';
+import Button from '@/components/elements/Button';
 
 const PLUGIN_CONFLICT_CHECK_CONCURRENCY = 3;
 

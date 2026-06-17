@@ -153,7 +153,16 @@ const findModeByFilename = (filename: string) => {
     return undefined;
 };
 
-export default ({ style, initialContent, filename, mode, fetchContent, onContentSaved, onModeChanged, onValidationChange }: Props) => {
+export default ({
+    style,
+    initialContent,
+    filename,
+    mode,
+    fetchContent,
+    onContentSaved,
+    onModeChanged,
+    onValidationChange,
+}: Props) => {
     const [editor, setEditor] = useState<CodeMirror.Editor>();
     const isDirtyRef = useRef(false);
     const onValidationChangeRef = useRef(onValidationChange);
@@ -243,7 +252,7 @@ export default ({ style, initialContent, filename, mode, fetchContent, onContent
         editor.setOption('gutters', ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']);
         emitValidationState(null);
 
-        const onChange = (_instance: CodeMirror.Editor, change: CodeMirror.EditorChangeCategorized) => {
+        const onChange = (_instance: CodeMirror.Editor, change: CodeMirror.EditorChange) => {
             if (change.origin === 'setValue') {
                 return;
             }

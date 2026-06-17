@@ -62,7 +62,9 @@ const isDashboardLayout = (value: unknown): value is DashboardLayout => {
 
     const layout = value as DashboardLayout;
 
-    return typeof layout.sortMode === 'string' && Array.isArray(layout.sections) && Array.isArray(layout.unsectionedOrder);
+    return (
+        typeof layout.sortMode === 'string' && Array.isArray(layout.sections) && Array.isArray(layout.unsectionedOrder)
+    );
 };
 
 export const normalizeScopedLayouts = (value: unknown): ScopedDashboardLayouts => {
@@ -74,8 +76,12 @@ export const normalizeScopedLayouts = (value: unknown): ScopedDashboardLayouts =
 
     if ('own' in record || 'admin' in record) {
         return cloneScopedDashboardLayouts({
-            own: isDashboardLayout(record.own) ? record.own : { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
-            admin: isDashboardLayout(record.admin) ? record.admin : { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
+            own: isDashboardLayout(record.own)
+                ? record.own
+                : { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
+            admin: isDashboardLayout(record.admin)
+                ? record.admin
+                : { ...DEFAULT_DASHBOARD_LAYOUT, sections: [], unsectionedOrder: [] },
         });
     }
 
@@ -232,7 +238,8 @@ export const moveServerInLayout = (
                 }
 
                 const serverUuids = [...section.serverUuids];
-                const index = typeof targetIndex === 'number' ? Math.min(targetIndex, serverUuids.length) : serverUuids.length;
+                const index =
+                    typeof targetIndex === 'number' ? Math.min(targetIndex, serverUuids.length) : serverUuids.length;
                 serverUuids.splice(index, 0, serverUuid);
 
                 return { ...section, serverUuids };
