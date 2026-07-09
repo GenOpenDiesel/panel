@@ -29,7 +29,11 @@ import Select from '@/components/elements/Select';
 
 const FILE_DISPLAY_LIMIT = 400;
 
-type SortMode = 'name_asc' | 'name_desc' | 'modified_desc';
+type SortMode = 'name_asc' | 'name_desc' | 'modified_desc' | 'size_desc';
+
+const SORT_MODES: SortMode[] = ['name_asc', 'name_desc', 'modified_desc', 'size_desc'];
+
+const isSortMode = (value: unknown): value is SortMode => SORT_MODES.includes(value as SortMode);
 
 const SORT_STORAGE_KEY = 'pterodactyl:files:sort';
 const DEFAULT_SORT_MODE: SortMode = 'name_asc';
@@ -58,6 +62,9 @@ const sortFiles = (files: FileObject[], directory: string, sortMode: SortMode): 
         case 'modified_desc':
             sortedFiles.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
             break;
+        case 'size_desc':
+            sortedFiles.sort((a, b) => b.size - a.size).sort(directoriesFirst);
+            break;
         case 'name_asc':
         default:
             sortedFiles.sort((a, b) => a.name.localeCompare(b.name)).sort(directoriesFirst);
@@ -81,9 +88,7 @@ export default () => {
     const [sortMode, setSortMode] = useState<SortMode>(() => {
         const stored = localStorage.getItem(SORT_STORAGE_KEY);
 
-        return stored === 'name_asc' || stored === 'name_desc' || stored === 'modified_desc'
-            ? stored
-            : DEFAULT_SORT_MODE;
+        return isSortMode(stored) ? stored : DEFAULT_SORT_MODE;
     });
 
     const onSortModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -129,7 +134,7 @@ export default () => {
         <ServerContentBlock title={'File Manager'} showFlashKey={'files'}>
             <FilesSubNavigation />
             <ErrorBoundary>
-                <div className={'flex flex-wrap-reverse md:flex-nowrap mb-4'}>
+                <div css={tw`flex flex-wrap-reverse md:flex-nowrap items-center mb-4`}>
                     <FileManagerBreadcrumbs
                         renderLeft={
                             <FileActionCheckbox
@@ -140,31 +145,39 @@ export default () => {
                             />
                         }
                     />
-                    <div css={tw`flex items-center ml-auto md:ml-4 mt-4 md:mt-0`}>
-                        <label css={tw`text-xs text-neutral-400 uppercase mr-2 whitespace-nowrap`} htmlFor={'sort-files'}>
-                            Sort by
-                        </label>
-                        <Select
-                            id={'sort-files'}
-                            value={sortMode}
-                            onChange={onSortModeChange}
-                            css={tw`w-auto`}
-                        >
-                            <option value={'name_asc'}>Name (A-Z)</option>
-                            <option value={'name_desc'}>Name (Z-A)</option>
-                            <option value={'modified_desc'}>Last modified</option>
-                        </Select>
-                    </div>
-                    <Can action={'file.create'}>
-                        <div className={style.manager_actions}>
-                            <FileManagerStatus />
-                            <NewDirectoryButton />
-                            <UploadButton />
-                            <NavLink to={`/server/${id}/files/new${window.location.hash}`}>
-                                <Button>New File</Button>
-                            </NavLink>
+                    <div
+                        css={tw`flex flex-col sm:flex-row sm:items-center gap-3 w-full md:w-auto md:flex-1 md:justify-end mt-4 md:mt-0`}
+                    >
+                        <div css={tw`flex items-center flex-shrink-0`}>
+                            <label
+                                htmlFor={'sort-files'}
+                                css={tw`text-xs font-medium tracking-wide uppercase text-neutral-400 mr-2 whitespace-nowrap`}
+                            >
+                                Sort by
+                            </label>
+                            <Select
+                                id={'sort-files'}
+                                value={sortMode}
+                                onChange={onSortModeChange}
+                                css={tw`w-full sm:w-auto py-2`}
+                            >
+                                <option value={'name_asc'}>Name (A–Z)</option>
+                                <option value={'name_desc'}>Name (Z–A)</option>
+                                <option value={'modified_desc'}>Last modified</option>
+                                <option value={'size_desc'}>Size (largest first)</option>
+                            </Select>
                         </div>
-                    </Can>
+                        <Can action={'file.create'}>
+                            <div className={style.manager_actions}>
+                                <FileManagerStatus />
+                                <NewDirectoryButton />
+                                <UploadButton />
+                                <NavLink to={`/server/${id}/files/new${window.location.hash}`}>
+                                    <Button>New File</Button>
+                                </NavLink>
+                            </div>
+                        </Can>
+                    </div>
                 </div>
             </ErrorBoundary>
             {!files ? (
