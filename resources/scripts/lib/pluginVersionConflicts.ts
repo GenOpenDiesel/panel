@@ -22,14 +22,13 @@ const getPluginVersionParts = (file: PluginFile): { key: string; name: string } 
         .trim();
     const match = fileNameWithoutExtension.match(PLUGIN_VERSION_SUFFIX_REGEX);
 
-    if (!match) {
-        return null;
-    }
+    // When the name carries a version suffix (e.g. "Plugin-1.2"), group by the
+    // versionless base name so different versions collide. Otherwise fall back to
+    // the whole base name, so plain copies like "ProtocolLib (4)" / "ProtocolLib (18)"
+    // still group together instead of being dropped.
+    const name = match ? match[1].replace(/[-_\s.]+$/, '').trim() : fileNameWithoutExtension;
 
-    const name = match[1].replace(/[-_\s.]+$/, '').trim();
-    const version = match[2].toLowerCase();
-
-    if (!name || !version) {
+    if (!name) {
         return null;
     }
 

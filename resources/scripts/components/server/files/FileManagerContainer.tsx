@@ -25,6 +25,7 @@ import { hashToPath, cleanDirectoryPath } from '@/helpers';
 import style from './style.module.css';
 import { Alert } from '@/components/elements/alert';
 import { findPluginVersionConflicts } from '@/lib/pluginVersionConflicts';
+import PluginConflictScrollMarkers from '@/components/server/files/PluginConflictScrollMarkers';
 import Select from '@/components/elements/Select';
 
 const FILE_DISPLAY_LIMIT = 400;
@@ -126,6 +127,15 @@ export default () => {
         conflict.files.forEach((file) => pluginVersionConflictFiles.add(file));
     });
 
+    // Map each duplicate to its relative position in the list so it can be marked on the scroll rail.
+    const pluginConflictMarkers = sortedFiles
+        .map((file, index) => ({ name: file.name, index }))
+        .filter((entry) => pluginVersionConflictFiles.has(entry.name))
+        .map((entry) => ({
+            name: entry.name,
+            ratio: sortedFiles.length > 1 ? entry.index / (sortedFiles.length - 1) : 0,
+        }));
+
     if (error) {
         return <ServerError message={httpErrorToHuman(error)} onRetry={() => mutate()} />;
     }
@@ -189,6 +199,7 @@ export default () => {
                     ) : (
                         <CSSTransition classNames={'fade'} timeout={150} appear in>
                             <div>
+                                <PluginConflictScrollMarkers markers={pluginConflictMarkers} />
                                 {pluginVersionConflicts.length > 0 && (
                                     <Alert type={'danger'} className={'mb-4'}>
                                         <span className={'text-sm'}>Possible duplicate plugin versions detected.</span>
